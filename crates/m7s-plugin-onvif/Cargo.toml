@@ -1,0 +1,15 @@
+[package]
+name = "m7s-plugin-onvif"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+ring = "0.17"
+socket2 = "0.6"
+tokio = { version = "1", features = ["net", "io-util", "rt", "time"] }
+log = "0.4"
+m7s-sdk = { path = "../m7s-sdk" }
+
+time = { version = "0.3", features = ["formatting"] }

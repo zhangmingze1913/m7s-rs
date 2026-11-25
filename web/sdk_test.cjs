@@ -1,0 +1,28 @@
+const fs = require("fs");
+const vm = require("vm");
+const code = fs.readFileSync(__dirname + "/sdk.js", "utf8");
+const video = { src: "", srcObject: null, play: async () => "playing" };
+const ctx = { video, window: null, console, fetch: async () => ({ ok: true, text: async () => "" }) };
+ctx.window = ctx;
+vm.createContext(ctx);
+vm.runInContext(code, ctx);
+if (!ctx.M7S || !ctx.M7S.Player) throw new Error("M7S.Player missing");
+if (typeof ctx.M7S.Player.prototype.reconnect !== "function") throw new Error("reconnect missing");
+if (typeof ctx.M7S.Player.prototype.setLevel !== "function") throw new Error("setLevel missing");
+if (typeof ctx.M7S.Player.prototype.chooseLevel !== "function") throw new Error("chooseLevel missing");
+if (ctx.M7S.version !== "1.1.0") throw new Error("sdk version");
+const p = ctx.M7S.createPlayer(video, {});
+p.levels = [{ bitrate: 500000 }, { bitrate: 2000000 }];
+if (p.chooseLevel(800000) !== 0) throw new Error("abr low");
+if (p.chooseLevel(3000000) !== 1) throw new Error("abr high");
+p.closed = true;
+p.currentLevel = 0;
+if (!p.flvAbrTick(3000) || p.currentLevel !== 1) throw new Error("flv abr");
+p.closed = false;
+p.currentLevel = -1;
+p.levels = [];
+p.play("http://x/a.m3u8", "hls").then(() => {
+  if (video.src !== "http://x/a.m3u8") throw new Error("src not set");
+  p.close();
+  console.log("sdk_ok");
+}).catch((e) => { console.error(e); process.exit(1); });

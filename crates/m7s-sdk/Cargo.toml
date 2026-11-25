@@ -1,0 +1,9 @@
+[package]
+name = "m7s-sdk"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+serde_json = "1"
+m7s-codec = { path = "../m7s-codec" }
+tokio = { version = "1", features = ["sync"] }

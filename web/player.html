@@ -1,0 +1,14 @@
+<!doctype html><html><head><meta charset="utf-8"><title>m7s Web SDK</title></head>
+<body style="background:#111;color:#eee;font:14px system-ui">
+<h3>m7s Web SDK</h3>
+<input id="url" size="60" value="http://127.0.0.1:8081/whep/live/test">
+<select id="type"><option>whep</option><option>hls</option><option>flv</option></select>
+<button id="go">Play</button>
+<video id="v" controls autoplay playsinline style="width:640px;background:#000"></video>
+<script src="/sdk.js"></script>
+<script>
+document.getElementById("go").onclick = async () => {
+  const p = new M7S.Player(document.getElementById("v"));
+  await p.play(document.getElementById("url").value, document.getElementById("type").value);
+};
+</script></body></html>

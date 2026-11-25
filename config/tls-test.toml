@@ -1,0 +1,34 @@
+[server]
+http_bind = "127.0.0.1:8443"
+rtmp_bind = "127.0.0.1:1936"
+gop_cache = 500
+backlog = 4096
+
+[tls]
+enabled = true
+rtmp = true
+cert = "config/cert.pem"
+key = "config/key.pem"
+require_client_cert = false
+client_ca = "config/client-ca.pem"
+
+[hls]
+enabled = true
+segment_secs = 2
+max_segments = 4
+
+[record]
+enabled = false
+dir = "../data/record"
+
+[cluster]
+enabled = false
+node_id = "tls"
+advertise = "127.0.0.1:8443"
+seeds = []
+heartbeat_secs = 5
+relay_timeout_secs = 10
+
+[auth]
+publish_key = ""
+api_token = ""

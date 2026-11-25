@@ -1,0 +1,27 @@
+[server]
+http_bind = "0.0.0.0:8180"
+rtmp_bind = "0.0.0.0:1935"
+gop_cache = 500
+
+[tls]
+enabled = false
+
+[hls]
+enabled = true
+segment_secs = 4
+max_segments = 6
+
+[record]
+enabled = false
+dir = "../data/record"
+
+[cluster]
+enabled = true
+node_id = "origin-1"
+advertise = "127.0.0.1:8180"
+seeds = ["127.0.0.1:8180"]
+heartbeat_secs = 5
+relay_timeout_secs = 10
+
+[auth]
+publish_key = ""

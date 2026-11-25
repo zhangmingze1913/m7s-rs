@@ -1,0 +1,14 @@
+[package]
+name = "m7s-plugin-rtsp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+log = "0.4"
+tokio = { version = "1", features = ["net", "time", "io-util", "rt", "macros"] }
+m7s-codec = { path = "../m7s-codec" }
+m7s-sdk = { path = "../m7s-sdk" }
+md-5 = "0.10"
+socket2 = "0.5"

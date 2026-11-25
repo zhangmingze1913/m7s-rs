@@ -1,0 +1,12 @@
+[package]
+name = "m7s-plugin-rtmp"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+tokio = { version = "1", features = ["io-util", "net", "rt", "time", "sync", "macros"] }
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+log = "0.4"
+m7s-codec = { path = "../m7s-codec" }
+m7s-sdk = { path = "../m7s-sdk" }

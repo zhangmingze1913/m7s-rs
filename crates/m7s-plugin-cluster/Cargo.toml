@@ -1,0 +1,15 @@
+[package]
+name = "m7s-plugin-cluster"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+log = "0.4"
+serde_json = "1"
+tokio = { version = "1", features = ["net", "time", "io-util", "sync", "rt", "macros"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+m7s-codec = { path = "../m7s-codec" }
+m7s-sdk = { path = "../m7s-sdk" }

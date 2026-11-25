@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #eef2f7; }
+  body { font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif; color: #0f172a; }
+  .canvas { width: 1800px; padding: 36px 44px 28px; background:
+    radial-gradient(circle at 12% 0%, #ffffff 0, #eef2f7 45%, #e7eef7 100%); }
+  header { margin-bottom: 22px; }
+  h1 { font-size: 36px; margin: 0; }
+  .sub { color: #475569; font-size: 15px; margin-top: 7px; }
+  .flow { display: flex; align-items: stretch; gap: 8px; margin-top: 18px; }
+  .stage { border-radius: 14px; background: #fff; border: 1px solid #dbe3ef;
+    box-shadow: 0 8px 24px rgba(15,23,42,.05); padding: 13px; }
+  .stage h3 { margin: 0 0 9px; font-size: 14px; color: #1e3a8a; }
+  .stage small { display: block; color: #64748b; font-size: 11px; line-height: 1.55; }
+  .ingest { width: 300px; }
+  .push { width: 240px; }
+  .ring { width: 225px; }
+  .disp { width: 250px; }
+  .sub { width: 250px; }
+  .egress { width: 330px; }
+  .arrow { width: 34px; display: flex; align-items: center; justify-content: center;
+    color: #64748b; font-size: 24px; font-weight: 300; }
+  .mini { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 8px; padding: 6px 8px;
+    margin-bottom: 6px; font-size: 11.5px; color: #334155; }
+  .mini b { color: #0f172a; }
+  .hot { border-color: #fdba74; background: #fff7ed; }
+  .blue { border-color: #bfdbfe; background: #eff6ff; }
+  .green { border-color: #bbf7d0; background: #f0fdf4; }
+  .purple { border-color: #ddd6fe; background: #f5f3ff; }
+  .badge { display: inline-block; font: 700 10px ui-monospace, Consolas, monospace;
+    color: #fff; background: #2563eb; border-radius: 5px; padding: 3px 6px; margin-bottom: 6px; }
+  .below { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .note { background: #fff; border: 1px solid #dbe3ef; border-radius: 12px; padding: 11px 13px;
+    font-size: 12px; color: #475569; line-height: 1.65; }
+  .note b { color: #0f172a; }
+  .foot { margin-top: 14px; color: #64748b; font-size: 11.5px; display: flex; justify-content: space-between; }
+  code { font: 11px ui-monospace, Consolas, monospace; color: #1d4ed8; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <header>
+    <h1>m7s-rs 数据面 · 零拷贝分发路径</h1>
+    <div class="sub">Ingest → Stream::push → RingBuffer → Dispatcher → 有界订阅通道 → Egress</div>
+  </header>
+
+  <div class="flow">
+    <div class="stage ingest">
+      <span class="badge">INGEST</span>
+      <h3>协议适配</h3>
+      <div class="mini blue"><b>RTMP</b> · RTSP · SRT</div>
+      <div class="mini blue"><b>WHIP</b> · WebTransport</div>
+      <div class="mini blue"><b>GB28181</b> · ONVIF(控制)</div>
+      <small>解复用为统一 <code>FlvTag { type, ts, data }</code>；时间戳单调化。</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage push">
+      <span class="badge">STREAM</span>
+      <h3>Stream::push()</h3>
+      <div class="mini"><b>Arc&lt;FlvTag&gt;</b> 共享</div>
+      <div class="mini">bytes / subscribers 原子计数</div>
+      <div class="mini">config / metadata 缓存</div>
+      <div class="mini">GOP cache（新订阅者回放）</div>
+      <small>按 <code>app/name</code> 进入 StreamManager 的流注册表。</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage ring">
+      <span class="badge">RING</span>
+      <h3>RingBuffer</h3>
+      <div class="mini hot"><b>lock-free SPMC</b></div>
+      <div class="mini">ArcSwap / 原子序号</div>
+      <div class="mini">fixed capacity</div>
+      <small>发布者不等待慢订阅者；读取端按自己的序号推进。</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage disp">
+      <span class="badge">FAN-OUT</span>
+      <h3>Dispatcher</h3>
+      <div class="mini purple"><b>per-stream</b> 单读广播</div>
+      <div class="mini">ArcSwap&lt;Vec&lt;Sub&gt;&gt;</div>
+      <div class="mini">DispatcherPool（按 key 分片）</div>
+      <small>一次 push，对 N 个订阅者 <code>try_send(Arc clone)</code>。</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage sub">
+      <span class="badge">BACKPRESSURE</span>
+      <h3>订阅通道</h3>
+      <div class="mini"><b>bounded 150</b></div>
+      <div class="mini">full → drop + counter</div>
+      <div class="mini">closed → 取消订阅</div>
+      <small>慢订阅者丢帧，不反压发布者；<code>m7s_dispatch_dropped_total</code> 可观测。</small>
+    </div>
+    <div class="arrow">→</div>
+    <div class="stage egress">
+      <span class="badge">EGRESS</span>
+      <h3>出口任务</h3>
+      <div class="mini green"><b>HTTP-FLV</b> · HLS TS/LL · fMP4</div>
+      <div class="mini green"><b>RTSP</b> TCP/UDP · <b>WHEP</b> RTP</div>
+      <div class="mini green"><b>MP4 / Record</b> · Cluster relay</div>
+      <small>每个连接独立的 reader task；WHEP/HLS/RTSP 通过 tap 获取流。</small>
+    </div>
+  </div>
+
+  <div class="below">
+    <div class="note"><b>新订阅者</b><br>
+      先取 GOP/config backlog（<code>cache_snapshot</code> / <code>tag_reader</code>），
+      再并入 Dispatcher 实时通道，避免黑屏/花屏。</div>
+    <div class="note"><b>零拷贝边界</b><br>
+      <code>Arc&lt;FlvTag&gt;</code> 在 Stream、Ring、Dispatcher、各订阅者之间共享；
+      只有协议出口需要重打包时才复制 payload。</div>
+    <div class="note"><b>可观测性</b><br>
+      每流 subscribers/bytes/latency；全局 streams/subscribers；
+      drop 计数；HTTP <code>/metrics</code> 输出 Prometheus 文本。</div>
+  </div>
+
+  <div class="foot">
+    <span>m7s-rs · data plane · 2026-11-18</span>
+    <span>单写多读 · 一次分发 N 订阅者 · 慢订阅丢帧</span>
+  </div>
+</div>
+</body>
+</html>

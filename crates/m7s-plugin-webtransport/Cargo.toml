@@ -1,0 +1,18 @@
+[package]
+name = "m7s-plugin-webtransport"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+http = "1"
+anyhow = "1"
+log = "0.4"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
+tokio = { version = "1", features = ["net", "rt", "time"] }
+web-transport-quinn = { version = "0.13.6", default-features = false, features = ["ring"] }
+m7s-sdk = { path = "../m7s-sdk" }
+m7s-plugin-srt = { path = "../m7s-plugin-srt" }
+m7s-plugin-hls = { path = "../m7s-plugin-hls" }
+bytes = "1"
+url = "2"

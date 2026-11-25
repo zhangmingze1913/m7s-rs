@@ -1,0 +1,18 @@
+[package]
+name = "m7s-plugin-webrtc"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+anyhow = "1"
+base64 = "0.22"
+bytes = "1"
+log = "0.4"
+rtp = "0.11"
+tokio = { version = "1", features = ["net", "time", "io-util", "rt", "process", "macros"] }
+webrtc = "0.11"
+m7s-codec = { path = "../m7s-codec" }
+m7s-sdk = { path = "../m7s-sdk" }
+interceptor = "0.12"
+rtcp = "0.11"
+async-trait = "0.1"

@@ -1,0 +1,74 @@
+[package]
+name = "m7s-rs"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.85"
+description = "Rust streaming server (Monibuca-compatible subset): RTMP ingest, HTTP-FLV, Origin/Edge cluster"
+license = "MIT"
+
+[workspace]
+members = ["crates/m7s-codec", "crates/m7s-sdk", "crates/m7s-config", "crates/m7s-pool", "crates/m7s-task", "crates/m7s-plugin-flv", "crates/m7s-plugin-rtmp", "crates/m7s-plugin-snap", "crates/m7s-plugin-mp4", "crates/m7s-plugin-sei", "crates/m7s-plugin-mix", "crates/m7s-plugin-transcode", "crates/m7s-plugin-crypto", "crates/m7s-plugin-debug", "crates/m7s-plugin-logrotate", "crates/m7s-plugin-report", "crates/m7s-plugin-crontab", "crates/m7s-plugin-test", "crates/m7s-plugin-homekit", "crates/m7s-plugin-v4l2", "crates/m7s-plugin-alsa", "crates/m7s-plugin-live", "crates/m7s-plugin-meeting", "crates/m7s-plugin-onvif", "crates/m7s-plugin-srt", "crates/m7s-plugin-webtransport", "crates/m7s-plugin-hls", "crates/m7s-plugin-gb28181", "crates/m7s-plugin-rtsp", "crates/m7s-plugin-webrtc", "crates/m7s-plugin-cluster"]
+
+[dependencies]
+m7s-codec = { path = "crates/m7s-codec" }
+m7s-sdk = { path = "crates/m7s-sdk" }
+m7s-config = { path = "crates/m7s-config" }
+m7s-plugin-rtmp = { path = "crates/m7s-plugin-rtmp" }
+m7s-plugin-snap = { path = "crates/m7s-plugin-snap" }
+m7s-plugin-mp4 = { path = "crates/m7s-plugin-mp4" }
+m7s-plugin-mix = { path = "crates/m7s-plugin-mix" }
+m7s-plugin-flv = { path = "crates/m7s-plugin-flv" }
+m7s-plugin-onvif = { path = "crates/m7s-plugin-onvif" }
+m7s-plugin-srt = { path = "crates/m7s-plugin-srt" }
+m7s-plugin-webtransport = { path = "crates/m7s-plugin-webtransport" }
+m7s-plugin-hls = { path = "crates/m7s-plugin-hls" }
+m7s-plugin-gb28181 = { path = "crates/m7s-plugin-gb28181" }
+m7s-plugin-rtsp = { path = "crates/m7s-plugin-rtsp" }
+m7s-plugin-webrtc = { path = "crates/m7s-plugin-webrtc" }
+m7s-plugin-live = { path = "crates/m7s-plugin-live" }
+m7s-plugin-meeting = { path = "crates/m7s-plugin-meeting" }
+m7s-plugin-cluster = { path = "crates/m7s-plugin-cluster" }
+m7s-plugin-transcode = { path = "crates/m7s-plugin-transcode" }
+anyhow = "1.0.104"
+base64 = "0.22.1"
+bytes = "1"
+clap = { version = "4.6.7", features = ["derive"] }
+env_logger = "0.11.11"
+log = "0.4.34"
+md-5 = "0.10"
+ring = "0.17.14"
+rtp = "0.11"
+rustls = { version = "0.23.45", default-features = false, features = ["ring", "std", "tls12"] }
+rustls-pemfile = "2"
+sapflow-srt = "=0.2.0-rc.1"
+serde = { version = "1.0.229", features = ["derive"] }
+serde_json = "1.0.151"
+socket2 = "0.6.5"
+tokio = { version = "1.53.1", features = ["rt-multi-thread", "net", "time", "sync", "io-util", "fs", "process"] }
+tokio-rustls = { version = "0.26.5", default-features = false, features = ["ring", "tls12"] }
+toml = "1.1.6"
+url = "2"
+web-transport-quinn = { version = "0.13.6", default-features = false, features = ["ring"] }
+quinn = { version = "0.11", default-features = false, features = ["runtime-tokio", "rustls-ring"] }
+webrtc = "0.11"
+webrtc-ice = "0.11"
+libloading = "0.8"
+arc-swap = "1"
+h2 = "0.4"
+http = "1"
+prost = "0.13"
+mysql_async = { version = "0.37.1", default-features = false }
+flate2 = { version = "1.1.11", default-features = false, features = ["rust_backend"] }
+wasmi = { version = "0.46.0", features = ["wat"] }
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+aes = "0.9.2"
+cbc = "0.2.1"
+cipher = { version = "0.5.2", features = ["alloc"] }
+
+[profile.dev]
+debug = 0
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

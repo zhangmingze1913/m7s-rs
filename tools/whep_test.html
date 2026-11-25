@@ -1,0 +1,42 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>WHEP test</title></head>
+<body>
+<video id="v" autoplay muted playsinline style="width:320px;height:240px;background:#000"></video>
+<audio id="a" autoplay></audio>
+<pre id="out">starting</pre>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  const log = (s) => { out.textContent += "\n" + s; console.log(s); };
+  try {
+    const pc = new RTCPeerConnection();
+    let got = 0;
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+    pc.ontrack = (e) => { got++; log('TRACK ' + e.track.kind); const el = e.track.kind === 'audio' ? document.getElementById('a') : document.getElementById('v'); el.srcObject = e.streams[0]; el.play().catch(()=>{}); };
+    pc.oniceconnectionstatechange = () => log('ICE ' + pc.iceConnectionState);
+    pc.onconnectionstatechange = () => log('PC ' + pc.connectionState);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await new Promise(r => {
+      if (pc.iceGatheringState === 'complete') return r();
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') r(); };
+      setTimeout(r, 3000);
+    });
+    log('OFFER candidates=' + (pc.localDescription.sdp.match(/a=candidate:/g) || []).length);
+    const res = await fetch('http://127.0.0.1:8081/whep/live/ff', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: pc.localDescription.sdp
+    });
+    log('HTTP ' + res.status);
+    const answer = await res.text(); log('ANSWER ' + answer.replace(/\r?\n/g,' | '));
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+    await new Promise(r => setTimeout(r, 8000));
+    const stats = await pc.getStats(); stats.forEach(r => { if (r.type === 'inbound-rtp') log('RTP ' + (r.kind||'') + ' packets=' + r.packetsReceived + ' bytes=' + r.bytesReceived); }); const v = document.getElementById('v'); log('VIDEO ' + v.videoWidth + 'x' + v.videoHeight + ' frames=' + (v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality().totalVideoFrames : -1)); const a = document.getElementById('a'); log('AUDIO ready=' + a.readyState + ' time=' + a.currentTime); log('FINAL ice=' + pc.iceConnectionState + ' pc=' + pc.connectionState + ' track=' + got);
+  } catch (e) {
+    log('ERR ' + e);
+  }
+})();
+</script>
+</body></html>

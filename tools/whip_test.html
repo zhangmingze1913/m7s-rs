@@ -1,0 +1,47 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>WHIP test</title></head>
+<body>
+<canvas id="c" width="320" height="240"></canvas>
+<pre id="out">starting</pre>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  const log = (s) => { out.textContent += "\n" + s; console.log(s); };
+  try {
+    const c = document.getElementById('c');
+    const ctx = c.getContext('2d');
+    let n = 0;
+    setInterval(() => {
+      ctx.fillStyle = `hsl(${n % 360},80%,50%)`;
+      ctx.fillRect(0, 0, 320, 240);
+      ctx.fillStyle = '#000';
+      ctx.font = '32px sans-serif';
+      ctx.fillText(String(n++), 20, 60);
+    }, 40);
+    const stream = c.captureStream(25);
+    const pc = new RTCPeerConnection();
+    const sender = pc.addTrack(stream.getVideoTracks()[0], stream);
+    const trans = pc.getTransceivers()[0];
+    const caps = RTCRtpSender.getCapabilities('video');
+    const h264 = (caps?.codecs || []).filter(x => x.mimeType === 'video/H264');
+    if (h264.length) trans.setCodecPreferences(h264);
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await new Promise(r => {
+      if (pc.iceGatheringState === 'complete') return r();
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') r(); };
+      setTimeout(r, 3000);
+    });
+    log('OFFER candidates=' + (pc.localDescription.sdp.match(/a=candidate:/g) || []).length); log('CODECS ' + (pc.localDescription.sdp.match(/a=rtpmap:[0-9]+ [^\\r\\n]+/g) || []).join(' | '));
+    const res = await fetch('http://127.0.0.1:8082/whip/live/whip', {
+      method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: pc.localDescription.sdp
+    });
+    log('HTTP ' + res.status);
+    const answer = await res.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+    await new Promise(r => setTimeout(r, 5000));
+    log('PUSHED ice=' + pc.iceConnectionState);
+  } catch (e) { log('ERR ' + e); }
+})();
+</script>
+</body></html>

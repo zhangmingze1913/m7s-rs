@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; background: #eef2f7; }
+  body { font-family: "Microsoft YaHei", "Segoe UI", Arial, sans-serif; color: #0f172a; }
+  .canvas { width: 1800px; min-height: 1250px; padding: 38px 44px 30px; background:
+    radial-gradient(circle at 10% 0%, #ffffff 0, #eef2f7 42%, #e8eef6 100%); }
+  header { display: flex; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; }
+  h1 { font-size: 40px; margin: 0; letter-spacing: .5px; }
+  .sub { margin-top: 8px; color: #475569; font-size: 16px; }
+  .legend { display: flex; gap: 18px; font-size: 13px; color: #475569; }
+  .legend span { display: inline-flex; align-items: center; gap: 7px; }
+  .dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+  .layer { border-radius: 18px; background: #fff; border: 1px solid #dbe3ef;
+    box-shadow: 0 10px 30px rgba(15,23,42,.06); padding: 16px 18px; position: relative; }
+  .layer-head { display: flex; align-items: baseline; gap: 12px; margin-bottom: 12px; }
+  .badge { font: 700 12px/1 ui-monospace, Consolas, monospace; color: #fff; background: #2563eb;
+    padding: 6px 8px; border-radius: 7px; letter-spacing: .5px; }
+  .layer h2 { font-size: 20px; margin: 0; }
+  .layer-head p { margin: 0; color: #64748b; font-size: 13px; }
+  .cards { display: grid; gap: 10px; }
+  .ingest-cards { grid-template-columns: repeat(7, 1fr); }
+  .card { border-radius: 11px; border: 1px solid #dbe3ef; background: #f8fafc; padding: 10px 12px; }
+  .card b { display: block; font-size: 15px; margin-bottom: 4px; }
+  .card small { display: block; color: #64748b; font-size: 11.5px; line-height: 1.5; }
+  .port { float: right; font: 600 10.5px ui-monospace, Consolas, monospace; color: #1d4ed8;
+    background: #dbeafe; border-radius: 5px; padding: 2px 5px; }
+  .flowarrow { height: 26px; display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 20px; }
+  .engine { background: #0f172a; border-color: #0f172a; color: #e2e8f0; padding: 18px; }
+  .engine .layer-head h2 { color: #f8fafc; }
+  .engine .layer-head p { color: #94a3b8; }
+  .engine .badge { background: #38bdf8; color: #082f49; }
+  .engine-grid { display: grid; grid-template-columns: 1.25fr 1fr 1.15fr; gap: 12px; }
+  .panel { background: #111c33; border: 1px solid #243450; border-radius: 13px; padding: 12px; }
+  .panel h3 { margin: 0 0 9px; font-size: 14px; color: #7dd3fc; letter-spacing: .4px; }
+  .stream { border: 1px solid #2f4668; background: #0b1529; border-radius: 10px; padding: 10px; }
+  .stream-title { font-size: 13px; font-weight: 700; color: #e0f2fe; margin-bottom: 7px; }
+  .chiprow { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 7px; }
+  .chip { font-size: 11px; color: #cbd5e1; border: 1px solid #33507a; background: #13223c;
+    padding: 4px 7px; border-radius: 999px; }
+  .chip.hot { color: #fef3c7; border-color: #b45309; background: #3b2a10; }
+  .metric { display: flex; justify-content: space-between; font: 11px ui-monospace, Consolas, monospace;
+    color: #94a3b8; border-top: 1px dashed #2a3d5c; padding-top: 6px; margin-top: 6px; }
+  .egress-list, .control-list { display: grid; gap: 7px; }
+  .eg { border: 1px solid #2f4668; background: #0b1529; border-radius: 8px; padding: 7px 9px;
+    font-size: 12px; color: #dbeafe; display: flex; justify-content: space-between; gap: 8px; }
+  .eg span { color: #94a3b8; font: 10.5px ui-monospace, Consolas, monospace; white-space: nowrap; }
+  .engine-note { margin-top: 10px; color: #94a3b8; font-size: 11.5px; line-height: 1.6; }
+  .bottom { display: grid; grid-template-columns: 1.4fr 1fr; gap: 12px; }
+  .consumers { grid-template-columns: repeat(4, 1fr); }
+  .cluster { display: grid; grid-template-columns: 1fr 90px 1fr; gap: 8px; align-items: center; }
+  .node { border: 1px solid #bbf7d0; background: #f0fdf4; border-radius: 11px; padding: 10px; }
+  .node b { display: block; font-size: 14px; color: #14532d; margin-bottom: 4px; }
+  .node small { color: #166534; font-size: 11px; line-height: 1.5; }
+  .link { text-align: center; color: #15803d; font-size: 12px; line-height: 1.6; }
+  .storage { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+  .mini { border: 1px solid #e2e8f0; background: #f8fafc; border-radius: 10px; padding: 9px 10px; }
+  .mini b { font-size: 13px; display: block; margin-bottom: 3px; }
+  .mini small { font-size: 11px; color: #64748b; }
+  .foot { margin-top: 12px; display: flex; justify-content: space-between; color: #64748b; font-size: 11.5px; }
+  .tag { font: 600 10.5px ui-monospace, Consolas, monospace; color: #1e40af; background: #dbeafe;
+    padding: 3px 6px; border-radius: 5px; margin-left: 6px; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <header>
+    <div>
+      <h1>m7s-rs 架构总览</h1>
+      <div class="sub">Monibuca V6 对标 · Rust 2024 / Tokio / lock-free RingBuffer + per-stream Dispatcher</div>
+    </div>
+    <div class="legend">
+      <span><i class="dot" style="background:#3b82f6"></i>接入</span>
+      <span><i class="dot" style="background:#0ea5e9"></i>引擎</span>
+      <span><i class="dot" style="background:#14b8a6"></i>分发/出口</span>
+      <span><i class="dot" style="background:#8b5cf6"></i>控制面</span>
+      <span><i class="dot" style="background:#22c55e"></i>集群</span>
+    </div>
+  </header>
+
+  <section class="layer">
+    <div class="layer-head"><span class="badge">01</span><h2>接入层 · Ingest</h2><p>协议适配、握手、解复用 → 统一 FlvTag</p></div>
+    <div class="cards ingest-cards">
+      <div class="card"><span class="port">:1935</span><b>RTMP / RTMPS</b><small>chunk / AMF0<br>publish · play</small></div>
+      <div class="card"><span class="port">:8554</span><b>RTSP</b><small>TCP interleaved · UDP<br>H.264 / AAC</small></div>
+      <div class="card"><span class="port">:9000</span><b>SRT</b><small>Listener · ARQ<br>AES-128 (sapflow-srt)</small></div>
+      <div class="card"><span class="port">:8082</span><b>WHIP</b><small>WebRTC ingest<br>ICE / DTLS / SRTP</small></div>
+      <div class="card"><span class="port">:4443</span><b>WebTransport</b><small>QUIC / HTTP3<br>datagram · bi-stream</small></div>
+      <div class="card"><span class="port">SIP</span><b>GB28181</b><small>SIP / PS / RTP<br>Catalog · Invite · PTZ</small></div>
+      <div class="card"><span class="port">:8083</span><b>ONVIF</b><small>Device / Media2<br>Events · PTZ</small></div>
+    </div>
+  </section>
+
+  <div class="flowarrow">▼</div>
+
+  <section class="layer engine">
+    <div class="layer-head"><span class="badge">02</span><h2>媒体引擎 · m7s-rs</h2><p>统一流注册表 · 零拷贝分发 · 多协议出口 · 控制面</p></div>
+    <div class="engine-grid">
+      <div class="panel">
+        <h3>数据面 · StreamManager</h3>
+        <div class="stream">
+          <div class="stream-title">Stream &lt;app/name&gt; <span class="tag">Arc&lt;FlvTag&gt;</span></div>
+          <div class="chiprow">
+            <span class="chip">RingBuffer</span><span class="chip">SPMC</span>
+            <span class="chip">GOP cache</span><span class="chip">config cache</span>
+          </div>
+          <div class="chiprow">
+            <span class="chip hot">Dispatcher</span><span class="chip">bounded 150</span>
+            <span class="chip">drop + counter</span><span class="chip">DispatcherPool</span>
+          </div>
+          <div class="chiprow">
+            <span class="chip">tap → WHEP/HLS/RTSP</span><span class="chip">tag_reader</span>
+          </div>
+          <div class="metric"><span>subscribers / bytes</span><span>atomic counters</span></div>
+          <div class="metric"><span>latency samples</span><span>P50 / P99 source</span></div>
+        </div>
+        <div class="engine-note">慢订阅者：有界 channel 满即丢帧，发布者不阻塞。<br>
+        新订阅者：先回放 GOP/config backlog，再并入实时流。</div>
+      </div>
+
+      <div class="panel">
+        <h3>出口层 · Egress</h3>
+        <div class="egress-list">
+          <div class="eg">HTTP-FLV <span>/flv/{app}/{name}.flv</span></div>
+          <div class="eg">HLS TS / LL-HLS <span>/hls/... · _HLS_msn</span></div>
+          <div class="eg">fMP4 / audio-only <span>/fmp4/... · aud.m3u8</span></div>
+          <div class="eg">RTSP <span>TCP / UDP · A/V</span></div>
+          <div class="eg">WHEP <span>:8081 ICE/DTLS/SRTP</span></div>
+          <div class="eg">MP4 / Record <span>RecordManager</span></div>
+          <div class="eg">Cluster relay <span>HTTP / QUIC</span></div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h3>控制面 · Control Plane</h3>
+        <div class="control-list">
+          <div class="eg">HTTP API <span>/api · /v6/api</span></div>
+          <div class="eg">Admin React <span>/admin-react</span></div>
+          <div class="eg">Web SDK <span>/sdk.js</span></div>
+          <div class="eg">gRPC <span>:50051 h2c</span></div>
+          <div class="eg">Metrics / Health <span>/metrics · /health</span></div>
+          <div class="eg">DB <span>SQLite · MySQL</span></div>
+          <div class="eg">License / Plugin <span>26 crates · WASM</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="flowarrow">▼</div>
+
+  <div class="bottom">
+    <section class="layer">
+      <div class="layer-head"><span class="badge">03</span><h2>消费层 · Consumers</h2><p>播放器、控制台、边缘节点</p></div>
+      <div class="cards consumers">
+        <div class="card"><b>HTTP-FLV</b><small>浏览器 / FFmpeg<br>低延迟长连接</small></div>
+        <div class="card"><b>HLS / fMP4</b><small>浏览器 / CDN<br>TS · LL-HLS · AES</small></div>
+        <div class="card"><b>RTSP / WHEP</b><small>VLC / 浏览器<br>RTP / WebRTC</small></div>
+        <div class="card"><b>Admin / gRPC</b><small>React / gRPC 客户端<br>运维与集成</small></div>
+      </div>
+    </section>
+
+    <section class="layer">
+      <div class="layer-head"><span class="badge">04</span><h2>集群面 · Cluster</h2><p>Origin / Edge</p></div>
+      <div class="cluster">
+        <div class="node"><b>Origin</b><small>接收推流<br>保存 stream<br>/cluster/api/*</small></div>
+        <div class="link">HTTP-FLV<br>+<br>QUIC :9443</div>
+        <div class="node"><b>Edge</b><small>本地无流时回源<br>按需 relay<br>播放器无感</small></div>
+      </div>
+      <div class="engine-note" style="color:#475569">HTTP / QUIC 故障切换已有测试；QUIC 分片、多级 cluster 为规划项。</div>
+    </section>
+  </div>
+
+  <div style="height:12px"></div>
+  <section class="layer">
+    <div class="layer-head"><span class="badge">05</span><h2>持久化与扩展</h2><p>数据、文件、插件</p></div>
+    <div class="storage">
+      <div class="mini"><b>SQLite / MySQL</b><small>streams · rooms · users</small></div>
+      <div class="mini"><b>MP4 / HLS files</b><small>record · segments · snapshots</small></div>
+      <div class="mini"><b>WASM (wasmi)</b><small>load · reload · frame/AV hooks</small></div>
+      <div class="mini"><b>26 plugin crates</b><small>protocol · media · device · tool</small></div>
+    </div>
+  </section>
+
+  <div class="foot">
+    <span>m7s-rs · architecture v6 · 2026-11-18</span>
+    <span>数据面：Arc 零拷贝 · 每流 Dispatcher · 慢订阅丢帧</span>
+  </div>
+</div>
+</body>
+</html>

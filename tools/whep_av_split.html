@@ -1,0 +1,43 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>WHEP A/V split</title></head>
+<body>
+<video id="v" autoplay muted playsinline style="width:320px;height:240px;background:#000"></video>
+<audio id="a" autoplay></audio>
+<pre id="out">starting</pre>
+<script>
+(async () => {
+  const out = document.getElementById('out');
+  const log = (s) => { out.textContent += "\n" + s; console.log(s); };
+  async function start(kind, el) {
+    const pc = new RTCPeerConnection();
+    let got = 0;
+    pc.addTransceiver(kind, { direction: 'recvonly' });
+    pc.ontrack = (e) => { got++; log(kind.toUpperCase() + ' TRACK'); el.srcObject = e.streams[0]; el.play().catch(()=>{}); };
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+    await new Promise(r => {
+      if (pc.iceGatheringState === 'complete') return r();
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') r(); };
+      setTimeout(r, 3000);
+    });
+    const res = await fetch('http://127.0.0.1:8081/whep/live/ff', {
+      method: 'POST', headers: { 'Content-Type': 'application/sdp' }, body: pc.localDescription.sdp
+    });
+    log(kind.toUpperCase() + ' HTTP ' + res.status);
+    const answer = await res.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answer });
+    return pc;
+  }
+  try {
+    const vp = await start('video', document.getElementById('v'));
+    const ap = await start('audio', document.getElementById('a'));
+    await new Promise(r => setTimeout(r, 9000));
+    const v = document.getElementById('v');
+    const a = document.getElementById('a');
+    log('VIDEO ' + v.videoWidth + 'x' + v.videoHeight + ' frames=' + (v.getVideoPlaybackQuality ? v.getVideoPlaybackQuality().totalVideoFrames : -1));
+    log('AUDIO ready=' + a.readyState + ' time=' + a.currentTime);
+    log('FINAL v=' + vp.iceConnectionState + ' a=' + ap.iceConnectionState);
+  } catch (e) { log('ERR ' + e); }
+})();
+</script>
+</body></html>

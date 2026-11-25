@@ -1,0 +1,1 @@
+C:\Users\Administrator\Documents\deepseek-harness\default-workspace\m7s-rs\plugins\hello\target\release\m7s_plugin_hello.dll: C:\Users\Administrator\Documents\deepseek-harness\default-workspace\m7s-rs\plugins\hello\src\lib.rs

@@ -1,0 +1,13 @@
+[package]
+name = "m7s-plugin-srt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+m7s-codec = { path = "../m7s-codec" }
+anyhow = "1"
+log = "0.4"
+tokio = { version = "1", features = ["net", "time", "rt", "macros"] }
+sapflow-srt = "=0.2.0-rc.1"
+m7s-sdk = { path = "../m7s-sdk" }
+m7s-plugin-hls = { path = "../m7s-plugin-hls" }

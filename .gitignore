@@ -1,0 +1,37 @@
+# Rust build output
+/target/
+
+# Runtime state
+/data/
+/record/
+*.log
+*.err
+
+# Test/benchmark scratch output
+/bench*.out
+/bench*.err
+/bench-last.json
+/load-*.out
+/load-*.log
+/flv.bin
+/vlc-help.txt
+
+# Browser profiles created by local acceptance runs
+/chrome-*/
+/chrome-h264-*/
+/chrome-profile-*/
+/chrome-whip-*/
+
+# Bundled third-party binaries (Chrome/VLC); install externally, see docs/DELIVERY.md
+/tools/chrome/
+/tools/vlc/
+/tools/vlc321/
+
+# Node dependencies (web/admin uses its own lockfile)
+node_modules/
+
+# TLS material: never commit production certificates/keys
+config/cert.pem
+config/key.pem
+config/*.p12
+config/*.pfx

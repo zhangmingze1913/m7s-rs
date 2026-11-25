@@ -1,0 +1,41 @@
+[server]
+http_bind = "0.0.0.0:8181"
+rtmp_bind = "0.0.0.0:1936"
+gop_cache = 500
+backlog = 16384
+
+[tls]
+enabled = false
+cert = "config/cert.pem"
+key = "config/key.pem"
+
+[rtsp]
+enabled = true
+bind = "0.0.0.0:8555"
+
+[gb28181]
+enabled = false
+bind = "0.0.0.0:5061"
+domain = "3402000000"
+password = ""
+
+[hls]
+enabled = true
+segment_secs = 4
+max_segments = 6
+
+[record]
+enabled = true
+dir = "../data/record2"
+
+[cluster]
+enabled = false
+node_id = "node2"
+advertise = "127.0.0.1:8181"
+seeds = []
+heartbeat_secs = 5
+relay_timeout_secs = 10
+
+[auth]
+publish_key = ""
+api_token = ""

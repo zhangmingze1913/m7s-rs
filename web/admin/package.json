@@ -1,0 +1,12 @@
+{
+  "name": "m7s-admin",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/main.jsx --bundle --minify --outfile=../admin.js && esbuild src/App.jsx --bundle --platform=node --format=cjs --external:react --outfile=dist/App.node.js"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "esbuild": "^0.25.0"
+  }
+}

@@ -1,0 +1,28 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - name: ffmpeg (test dependency)
+        run: choco install ffmpeg -y --no-progress
+      - name: clippy
+        run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: tests
+        run: cargo test --workspace
+      - name: release build
+        run: cargo build --release --workspace
+      - name: web sdk smoke
+        run: node web/sdk_test.cjs
+      - name: admin smoke
+        run: node web/admin/test.cjs
