@@ -27,6 +27,7 @@ pub async fn run(listener: TcpListener, state: AppState) -> Result<()> {
     log::info!("HTTP listening on {}", listener.local_addr()?);
     loop {
         let (socket, peer) = listener.accept().await?;
+        let _ = socket.set_nodelay(true);
         let Some(guard) = m7s_sdk::connections::try_acquire() else {
             drop(socket);
             continue;
@@ -45,6 +46,7 @@ pub async fn run_tls(listener: TcpListener, state: AppState, acceptor: TlsAccept
     log::info!("HTTPS listening on {}", listener.local_addr()?);
     loop {
         let (socket, peer) = listener.accept().await?;
+        let _ = socket.set_nodelay(true);
         let Some(guard) = m7s_sdk::connections::try_acquire() else {
             drop(socket);
             continue;

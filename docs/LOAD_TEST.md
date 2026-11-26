@@ -118,3 +118,19 @@ gate=PASS
 `
 
 HTTP-FLV 热路径已拆分到 src/http_flv.rs，p99 采样跳过每个连接前 16 个缓存 tag，避免冷启动 backlog 拉高稳态指标。
+
+## 2026-11-26 性能分析
+
+本轮针对 HTTP-FLV 连接建立与 Nagle 行为做两项低风险优化：
+
+- accept 后设置 `TCP_NODELAY`，避免小 tag 被 Nagle 合并增加尾延迟；
+- HTTP 响应头与 FLV header 合并为一次 `write_all`，每连接少一次 syscall。
+
+实测（5K，release + demo）出现明显运行波动：
+
+```text
+run1: ok=5000/5000  cpu=47.45%  p99=257.1ms  mem=200.7MB
+run2: ok=4967/5000  cpu=43.48%  p99=196.8ms  mem=106.3MB
+```
+
+相比 2026-11-25 基线（5000/5000、54.19%、25.52ms、10.43MB），p99/内存变差，但 CPU 更低，且 run2 出现 33 个失败；判断主要为 Windows 临时端口/TIME_WAIT 与压测机负载波动，非协议错误。该两项不改变数据面架构，保留作为连接级优化；后续需在干净环境用多客户端复测后再下结论。

@@ -46,14 +46,13 @@ where
 
     // Write fixed headers once. `Connection: close` keeps lifecycle simple:
     // a viewer is exactly one TCP connection and one dispatch subscriber.
-    socket
-        .write_all(
-            b"HTTP/1.1 200 OK\r\nContent-Type: video/x-flv\r\nCache-Control: no-cache\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
-        )
-        .await?;
-    socket
-        .write_all(&crate::flv::flv_header(true, true))
-        .await?;
+    // One write for response headers + FLV header: halves TCP syscalls on join.
+    let mut header = Vec::with_capacity(256);
+    header.extend_from_slice(
+        b"HTTP/1.1 200 OK\r\nContent-Type: video/x-flv\r\nCache-Control: no-cache\r\nConnection: close\r\nAccess-Control-Allow-Origin: *\r\n\r\n",
+    );
+    header.extend_from_slice(&crate::flv::flv_header(true, true));
+    socket.write_all(&header).await?;
 
     // One subscriber cursor per viewer. The dispatcher uses a shared broadcast
     // ring, so creating this reader does not create a per-viewer frame queue.
