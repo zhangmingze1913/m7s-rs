@@ -1,4 +1,12 @@
 //! HTTP surface: HTTP-FLV, HLS, Admin, stream API and cluster control plane.
+//!
+//! Layering:
+//! 1. request read/parse and authentication;
+//! 2. route dispatch returning serde_json values;
+//! 3. streaming routes (HTTP-FLV/HLS/SSE) write the socket directly;
+//! 4. response helpers at the bottom.
+//!
+//! Per-frame work belongs in `http_flv`/`hls`, not here.
 
 use std::sync::Arc;
 
@@ -104,6 +112,7 @@ where
         .strip_prefix("/v6/api")
         .map(|rest| format!("/api{rest}"))
         .unwrap_or_else(|| path.to_string());
+    // --- Authentication: admin token, JWT, or tenant token. ---
     let jwt_secret = std::env::var("M7S_JWT_SECRET").unwrap_or_default();
     let mut authorized = state.api_token.is_empty() && jwt_secret.is_empty();
     let mut caller = "anonymous".to_string();
@@ -179,6 +188,7 @@ where
         )
         .await;
     }
+    // --- Streaming routes are handled before the JSON route match. ---
     if let Some((app, name)) = parse_flv_path(path) {
         if role == "tenant" {
             if app != caller {
@@ -1397,7 +1407,8 @@ where
     }
 }
 
-pub(crate) async fn respond_json<S>(socket: &mut S, status: u16, body: &Value) -> Result<()>
+pub(crate) // --- HTTP response helpers. ---
+async fn respond_json<S>(socket: &mut S, status: u16, body: &Value) -> Result<()>
 where
     S: AsyncWrite + Unpin,
 {
