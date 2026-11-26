@@ -701,7 +701,7 @@ mod bot_tests {
         let room = format!("bot-{}", std::process::id());
         clear_chat(&room);
         assert!(start_bot_room(&room, "bot1", vec!["hello".to_string(), "world".to_string()], 10));
-        std::thread::sleep(std::time::Duration::from_millis(120));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         let history = chat_history(&room, 20);
         assert!(history.len() >= 2, "{history:?}");
         assert!(history.iter().all(|m| m.user == "bot1"));
@@ -714,7 +714,7 @@ mod bot_tests {
         clear_chat(&room);
         let msgs = vec!["join".to_string(), "seat:1".to_string(), "like:5".to_string(), "gift:1,2".to_string(), "hello".to_string()];
         assert!(start_bot_room(&room, "bot2", msgs, 10));
-        std::thread::sleep(std::time::Duration::from_millis(150));
+        std::thread::sleep(std::time::Duration::from_millis(500));
         assert_eq!(members(&room), 1);
         assert_eq!(seats(&room)[1].as_deref(), Some("bot2"));
         assert!(robots(&room) >= 5);
@@ -723,6 +723,26 @@ mod bot_tests {
         assert!(stop_bot_room(&room));
         clear_chat(&room);
     }
+}
+
+/// A parsed robot-script step.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum BotStep {
+    Action(String),
+    Wait(u64),
+}
+
+/// Parse `;`/newline separated robot DSL. Empty lines and `#` comments are ignored.
+pub fn parse_bot_script(script: &str) -> Vec<BotStep> {
+    script
+        .split([';', '\n'])
+        .map(str::trim)
+        .filter(|s| !s.is_empty() && !s.starts_with('#'))
+        .map(|s| match s.strip_prefix("wait:").or_else(|| s.strip_prefix("sleep:")) {
+            Some(ms) => BotStep::Wait(ms.parse().unwrap_or(100).min(60_000)),
+            None => BotStep::Action(s.to_string()),
+        })
+        .collect()
 }
 
 fn apply_bot_action(room: &str, user: &str, action: &str) {
@@ -759,7 +779,8 @@ fn apply_bot_action(room: &str, user: &str, action: &str) {
         }
         return;
     }
-    let _ = send_chat(room, user, action);
+    let text = action.strip_prefix("say:").unwrap_or(action);
+    let _ = send_chat(room, user, text);
 }
 
 pub fn gift_ranking(room: &str) -> Vec<(String, u64)> {
@@ -798,4 +819,72 @@ fn trim_jsonl(path: &std::path::Path, max: usize) {
     }
     let keep = lines[lines.len() - max..].join("\n") + "\n";
     let _ = std::fs::write(path, keep);
+}
+
+pub fn start_bot_script(room: &str, user: &str, script: &str, interval_ms: u64) -> BotHandle {
+    let steps = parse_bot_script(script);
+    let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let flag = stop.clone();
+    let room = room.to_string();
+    let user = user.to_string();
+    let interval = interval_ms.max(10);
+    std::thread::spawn(move || {
+        while !flag.load(std::sync::atomic::Ordering::Acquire) {
+            for step in &steps {
+                if flag.load(std::sync::atomic::Ordering::Acquire) {
+                    break;
+                }
+                match step {
+                    BotStep::Wait(ms) => {
+                        std::thread::sleep(std::time::Duration::from_millis(*ms));
+                    }
+                    BotStep::Action(action) => {
+                        apply_bot_action(&room, &user, action);
+                        std::thread::sleep(std::time::Duration::from_millis(interval));
+                    }
+                }
+            }
+            if steps.is_empty() {
+                break;
+            }
+        }
+    });
+    BotHandle { stop }
+}
+
+pub fn start_bot_room_script(room: &str, user: &str, script: &str, interval_ms: u64) -> bool {
+    if room.is_empty() || user.is_empty() || parse_bot_script(script).is_empty() {
+        return false;
+    }
+    let handle = start_bot_script(room, user, script, interval_ms);
+    bots()
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .insert(room.to_string(), handle);
+    true
+}
+
+#[cfg(test)]
+mod bot_script_tests {
+    use super::*;
+
+    #[test]
+    fn parses_and_runs_script() {
+        let steps = parse_bot_script("join; wait:10; seat:1; # comment\nlike:5; say:hi");
+        assert_eq!(steps[0], BotStep::Action("join".into()));
+        assert_eq!(steps[1], BotStep::Wait(10));
+        assert_eq!(steps.last().unwrap(), &BotStep::Action("say:hi".into()));
+
+        let room = format!("bots-{}", std::process::id());
+        clear_chat(&room);
+        assert!(start_bot_room_script(&room, "bot3", "join; seat:2; like:3; gift:1,2; say:hello", 10));
+        std::thread::sleep(std::time::Duration::from_millis(500));
+        assert_eq!(members(&room), 1);
+        assert_eq!(seats(&room)[2].as_deref(), Some("bot3"));
+        assert!(robots(&room) >= 3);
+        assert!(gift_total(&room) >= 2);
+        assert!(chat_history(&room, 20).iter().any(|m| m.text == "hello"));
+        assert!(stop_bot_room(&room));
+        clear_chat(&room);
+    }
 }

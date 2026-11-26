@@ -641,9 +641,14 @@ where
             let room = q.split('&').find_map(|kv| kv.strip_prefix("room=")).unwrap_or("");
             let user = q.split('&').find_map(|kv| kv.strip_prefix("user=")).unwrap_or("bot");
             let text = q.split('&').find_map(|kv| kv.strip_prefix("text=")).unwrap_or("hello");
+            let script = q.split('&').find_map(|kv| kv.strip_prefix("script=")).unwrap_or("");
             let interval = q.split('&').find_map(|kv| kv.strip_prefix("interval=")).and_then(|v| v.parse().ok()).unwrap_or(1000);
             let messages: Vec<String> = text.split(',').filter(|s| !s.is_empty()).map(str::to_string).collect();
-            let ok = m7s_plugin_live::start_bot_room(room, user, messages, interval);
+            let ok = if script.is_empty() {
+                m7s_plugin_live::start_bot_room(room, user, messages, interval)
+            } else {
+                m7s_plugin_live::start_bot_room_script(room, user, script, interval)
+            };
             json!({"code":0,"started":ok,"room":room})
         }
         "/api/live/bot/stop" => {

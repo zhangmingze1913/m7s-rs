@@ -35,3 +35,7 @@ config/cert.pem
 config/key.pem
 config/*.p12
 config/*.pfx
+
+# Test/runtime state written with the plugin crate as cwd
+**/data/gifts.json
+**/data/gift-events.jsonl

@@ -24,7 +24,7 @@
 | Meeting 发布/录制/禁言/举手/踢人 | PASS | `tests/room_http.rs`、`mp4::record` | 多人合成 |
 | Admin RBAC / 审计 / CSV / 保留+多级归档/gzip/时间滚动+并发锁 | PASS | `tests/rbac_audit.rs`、`tests/audit_concurrency.rs` | 多租户/配置热更新 |
 | Web SDK 重连/ABR（WebRTC+hls.js+FLV） | PASS | `web/sdk_test.cjs` | 弱网真机/DRM/字幕 |
-| WASM market / hot reload / 签名/白名单/fuel | PASS | `wasm_plugin` tests、`tests/wasm_http.rs` | 更细粒度隔离 |
+| WASM market / hot reload / 签名/白名单/fuel/内存上限 | PASS | `wasm_plugin` tests、`tests/wasm_http.rs` | 更细粒度隔离 |
 | SEI 原生 / Mix RGB / RGB scale | PASS | SEI/Mix/Transcode tests | H.264/AAC 原生编码 |
 | 监控 / 告警 / 流事件 / 连接指标 | PASS | `tests/alerts_http.rs`、`tests/events.rs`、`tests/metrics_http.rs` | pprof/tracing/RSS/CPU |
 | Edition/授权 | PASS（离线+远程+吊销+激活/连接上限） | `tests/license_*.rs`、`tests/connection_limit.rs`、`tests/protocol_connection_limit.rs` | 计费 |

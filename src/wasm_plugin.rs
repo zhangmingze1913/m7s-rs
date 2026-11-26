@@ -1,6 +1,6 @@
 //! Sandboxed WASM plugin runtime (wasmi, no WASI/host imports).
 
-use wasmi::{Engine, Instance, Memory, Module, Store, TypedFunc};
+use wasmi::{Engine, Instance, Memory, Module, Store, StoreLimitsBuilder, TypedFunc};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct AvFrame {
@@ -39,7 +39,7 @@ impl AvFrame {
 }
 pub struct WasmPlugin {
 
-    store: Store<()>,
+    store: Store<wasmi::StoreLimits>,
     memory: Memory,
     alloc: TypedFunc<i32, i32>,
     transform: TypedFunc<(i32, i32), i64>,
@@ -56,7 +56,20 @@ impl WasmPlugin {
         config.consume_fuel(true);
         let engine = Engine::new(&config);
         let module = Module::new(&engine, bytes).map_err(|e| e.to_string())?;
-        let mut store = Store::new(&engine, ());
+        let memory_mb = std::env::var("M7S_WASM_MEMORY_MB")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(64)
+            .max(1);
+        let limits = StoreLimitsBuilder::new()
+            .memory_size(memory_mb * 1024 * 1024)
+            .table_elements(1024 * 1024)
+            .instances(16)
+            .tables(16)
+            .memories(4)
+            .build();
+        let mut store = Store::new(&engine, limits);
+        store.limiter(|limits| limits);
         let fuel = std::env::var("M7S_WASM_FUEL").ok().and_then(|v| v.parse().ok()).unwrap_or(50_000_000);
         store.set_fuel(fuel).map_err(|e| e.to_string())?;
         let linker = wasmi::Linker::new(&engine);
@@ -843,6 +856,7 @@ pub fn permissions() -> serde_json::Value {
     serde_json::json!({
         "allow": std::env::var("M7S_WASM_ALLOW").unwrap_or_default(),
         "fuel": std::env::var("M7S_WASM_FUEL").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(50_000_000),
+        "memory_mb": std::env::var("M7S_WASM_MEMORY_MB").ok().and_then(|v| v.parse::<usize>().ok()).unwrap_or(64),
         "require_signature": std::env::var("M7S_WASM_PUBKEY").is_ok(),
     })
 }

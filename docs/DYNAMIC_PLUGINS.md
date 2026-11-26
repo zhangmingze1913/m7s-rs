@@ -57,7 +57,8 @@ cargo build --manifest-path plugins/hello/Cargo.toml --release
 - `GET /api/wasm/market`；
 - `wasm_plugin::hot_reload()` 对比已安装文件字节，校验后原子替换；
 - `GET /api/wasm/hot_reload`；
-- `M7S_WASM_HOT_RELOAD=<secs>` 启动后台轮询 watcher。
+- `M7S_WASM_HOT_RELOAD=<secs>` 启动后台轮询 watcher；
+`M7S_WASM_MEMORY_MB` 限制每个 WASM 实例线性内存（默认 64MB），`M7S_WASM_FUEL` 限制指令数。
 
 测试：
 

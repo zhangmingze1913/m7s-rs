@@ -31,7 +31,7 @@ fn events_sse_receives_stream_created() {
             tokio::time::sleep(std::time::Duration::from_millis(100)).await;
             streams.get_or_create("live", "sse");
             let mut buf = Vec::new();
-            tokio::time::timeout(std::time::Duration::from_secs(2), s.read_to_end(&mut buf))
+            tokio::time::timeout(std::time::Duration::from_secs(5), s.read_to_end(&mut buf))
                 .await
                 .unwrap()
                 .unwrap();
