@@ -1,5 +1,0 @@
-HTTP/FLV : http://0.0.0.0:8180/flv/live/test.flv
-RTMP      : rtmp://0.0.0.0:1935/live/test
-API       : http://0.0.0.0:8180/api/streams
-RTSP      : rtsp://0.0.0.0:8554/live/test
-cluster   : node=origin-1 advertise=127.0.0.1:8180
