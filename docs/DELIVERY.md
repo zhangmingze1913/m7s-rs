@@ -233,3 +233,11 @@ git push -u origin main
 - GET /debug/pprof：streams/subscribers/dropped/parallelism 快照；
 - M7S_TRACING=1：启用 tracing-subscriber，HTTP-FLV 连接带 span；
 - 未实现 CPU/heap flamegraph；需要时接入 pprof crate。
+
+## 15. 多租户
+
+- GET /api/tenants 列表；
+- GET /api/tenants/create?name=&token=&max_streams=&max_viewers=；
+- GET /api/tenants/delete?name=；
+- 租户 token 可认证；FLV app 必须等于租户名，超过 max_viewers 返回 429。
+测试：	ests/tenant_http.rs。

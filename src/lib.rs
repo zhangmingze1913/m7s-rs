@@ -34,6 +34,7 @@ pub mod rtsp_pull;
 pub mod snap;
 pub mod srt;
 pub mod stream;
+pub mod tenant;
 pub mod time;
 pub mod tls;
 pub mod transcode;

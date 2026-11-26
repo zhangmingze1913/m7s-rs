@@ -118,6 +118,12 @@ where
                     role = "admin".to_string();
                     break;
                 }
+                if let Some(t) = crate::tenant::by_token(v) {
+                    authorized = true;
+                    caller = t.name;
+                    role = "tenant".to_string();
+                    break;
+                }
                 if !jwt_secret.is_empty() {
                     if let Some(claims) = crate::auth::verify(&jwt_secret, v) {
                         authorized = true;
@@ -131,6 +137,12 @@ where
                     authorized = true;
                     caller = "api-token".to_string();
                     role = "admin".to_string();
+                    break;
+                }
+                if let Some(t) = crate::tenant::by_token(v.trim()) {
+                    authorized = true;
+                    caller = t.name;
+                    role = "tenant".to_string();
                     break;
                 }
             }
@@ -157,7 +169,8 @@ where
         || path.starts_with("/api/license/activate")
         || path.starts_with("/api/license/revoke")
         || path.starts_with("/api/admin")
-        || path == "/api/config/reload";
+        || path == "/api/config/reload"
+        || path.starts_with("/api/tenants");
     if admin_only && role != "admin" {
         return respond_json(
             &mut socket,
@@ -167,6 +180,17 @@ where
         .await;
     }
     if let Some((app, name)) = parse_flv_path(path) {
+        if role == "tenant" {
+            if app != caller {
+                return respond_json(&mut socket, 403, &json!({"code":403,"message":"tenant stream isolation"})).await;
+            }
+            if let Some(t) = crate::tenant::get(&caller) {
+                let viewers: usize = state.streams.list().iter().filter(|s| s["app"].as_str() == Some(caller.as_str())).map(|s| s["subscribers"].as_u64().unwrap_or(0) as usize).sum();
+                if viewers >= t.max_viewers {
+                    return respond_json(&mut socket, 429, &json!({"code":429,"message":"tenant viewer quota"})).await;
+                }
+            }
+        }
         return crate::http_flv::serve(socket, state, &app, &name).await;
     }
     if let Some((app, name, file)) = parse_hls_path(path) {
@@ -491,6 +515,24 @@ where
             }
             let _ = socket.shutdown().await;
             return Ok(());
+        }
+        "/api/tenants" => json!({"code":0,"tenants":crate::tenant::list()}),
+        "/api/tenants/create" => {
+            let q = target.split_once('?').map(|(_, q)| q).unwrap_or("");
+            let name = q.split('&').find_map(|kv| kv.strip_prefix("name=")).unwrap_or("");
+            let token = q.split('&').find_map(|kv| kv.strip_prefix("token=")).unwrap_or("");
+            let max_streams = q.split('&').find_map(|kv| kv.strip_prefix("max_streams=")).and_then(|v| v.parse().ok()).unwrap_or(10);
+            let max_viewers = q.split('&').find_map(|kv| kv.strip_prefix("max_viewers=")).and_then(|v| v.parse().ok()).unwrap_or(1000);
+            let ok = crate::tenant::create(name, token, max_streams, max_viewers);
+            crate::audit::log(&caller, &role, "tenant.create", name, ok);
+            json!({"code":0,"created":ok,"tenant":name})
+        }
+        "/api/tenants/delete" => {
+            let q = target.split_once('?').map(|(_, q)| q).unwrap_or("");
+            let name = q.split('&').find_map(|kv| kv.strip_prefix("name=")).unwrap_or("");
+            let removed = crate::tenant::remove(name);
+            crate::audit::log(&caller, &role, "tenant.delete", name, removed);
+            json!({"code":0,"removed":removed})
         }
         "/api/streams" => json!({"code":0,"data":{"streams":state.streams.list()}}),
         "/api/admin/overview" => {
