@@ -29,6 +29,8 @@ pub struct Stream {
     ring: Arc<crate::ring::RingBuffer<FlvTag>>,
     tap_tx: broadcast::Sender<m7s_sdk::SharedTag>,
     dispatcher: Arc<crate::dispatcher::Dispatcher>,
+    /// Cached dispatcher-pool shard index; the stream key never changes.
+    worker_idx: std::sync::OnceLock<usize>,
 }
 
 impl Stream {
@@ -51,6 +53,7 @@ impl Stream {
             ring: crate::ring::RingBuffer::new(gop_cache.saturating_mul(2).max(64)),
             tap_tx: broadcast::channel(1024).0,
             dispatcher: crate::dispatcher::Dispatcher::new(150),
+            worker_idx: std::sync::OnceLock::new(),
         }
     }
 
@@ -100,7 +103,10 @@ impl Stream {
         }
         // Fan-out is last: readers must be able to see the cache/config above.
         if let Some(pool) = crate::dispatcher::pool() {
-            pool.push(&self.key, self.dispatcher.clone(), tag.clone());
+            let idx = *self
+                .worker_idx
+                .get_or_init(|| pool.worker_for(&self.key));
+            pool.push_at(idx, self.dispatcher.clone(), tag.clone());
         } else {
             self.dispatcher.push(tag.clone());
         }

@@ -137,6 +137,12 @@ impl DispatcherPool {
 
     pub fn push(&self, key: &str, d: Arc<Dispatcher>, tag: SharedTag) {
         let idx = self.worker_for(key);
+        self.push_at(idx, d, tag);
+    }
+
+    /// Publish with a precomputed shard index (hot path avoids re-hashing the key).
+    pub fn push_at(&self, idx: usize, d: Arc<Dispatcher>, tag: SharedTag) {
+        let idx = idx % self.workers.len();
         if let Err(mpsc::error::TrySendError::Full((d, tag))) =
             self.workers[idx].try_send((d, tag))
         {
