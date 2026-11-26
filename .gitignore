@@ -44,3 +44,5 @@ config/*.pfx
 /sample-test.flv
 
 /rtmp-bench.*
+
+/hls-bench.*
