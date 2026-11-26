@@ -227,3 +227,9 @@ git push -u origin main
 ## 13. 配置热更新
 
 `GET /api/config/reload`（admin）重新读取启动时的 config 路径，并应用 HLS 配置（enabled/segment_secs/max_segments/encrypt）。监听地址、TLS 证书、RTMP/RTSP 端口仍需重启。测试：`tests/config_reload.rs`。
+
+## 14. 性能诊断
+
+- GET /debug/pprof：streams/subscribers/dropped/parallelism 快照；
+- M7S_TRACING=1：启用 tracing-subscriber，HTTP-FLV 连接带 span；
+- 未实现 CPU/heap flamegraph；需要时接入 pprof crate。

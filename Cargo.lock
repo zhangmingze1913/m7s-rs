@@ -1918,6 +1918,8 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "toml",
+ "tracing",
+ "tracing-subscriber",
  "url",
  "wasmi",
  "web-transport-quinn",

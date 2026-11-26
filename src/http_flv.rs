@@ -19,6 +19,7 @@ use crate::http::{AppState, respond_json, respond_redirect};
 /// - HTTP headers;
 /// - FLV file header (9 bytes + PreviousTagSize);
 /// - a continuous stream of FLV tags until the client disconnects.
+#[tracing::instrument(name = "http_flv", skip(socket, state), fields(app = app, name = name))]
 pub async fn serve<S>(mut socket: S, state: AppState, app: &str, name: &str) -> Result<()>
 where
     S: AsyncWrite + Unpin,

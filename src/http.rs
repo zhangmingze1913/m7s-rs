@@ -401,6 +401,18 @@ where
         };
     }
     let body = match route.as_str() {
+        "/debug/pprof" => {
+            let streams = state.streams.count();
+            json!({
+                "code":0,
+                "pid": std::process::id(),
+                "streams": streams,
+                "subscribers": state.streams.subscriber_count(),
+                "dropped": crate::dispatcher::dropped_total(),
+                "parallelism": std::thread::available_parallelism().map(|n| n.get()).unwrap_or(0),
+                "note":"pprof-lite snapshot; use M7S_TRACING=1 for spans"
+            })
+        }
         "/health" | "/healthz" => json!({
             "status":"ok",
             "node_id": state.node_id,
