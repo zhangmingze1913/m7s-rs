@@ -1,7 +1,8 @@
 param(
     [int]$Viewers = 1000,
     [int]$Seconds = 3,
-    [int]$Duration = 45
+    [int]$Duration = 60,
+    [int]$SettleSecs = 3
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +25,7 @@ try {
 
     $loadOutput = node scripts\load_test.cjs $Viewers $Seconds | Out-String
     Write-Host $loadOutput.Trim()
+    Start-Sleep -Seconds $SettleSecs
 
     $after = Get-Process -Id $server.Id
     $api = Invoke-RestMethod -Uri "http://127.0.0.1:8180/api/streams" -ErrorAction SilentlyContinue
