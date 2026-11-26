@@ -1335,7 +1335,7 @@ where
                     .as_bytes(),
                 )
                 .await?;
-            socket.write_all(&data).await?;
+            socket.write_all(data.as_slice()).await?;
             socket.flush().await?;
             Ok(())
         }

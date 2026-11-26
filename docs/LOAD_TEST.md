@@ -188,3 +188,14 @@ run2: ok=4967/5000  cpu=43.48%  p99=196.8ms  mem=106.3MB
 - CPU 约 27%，内存约 13.5MB；
 - p99 255–520ms，仍有调度抖动；
 - 20K/16 源 IP 仅 1584/20000，服务端 CPU 31%、内存 14.8MB，瓶颈仍在客户端/OS 连接能力，不能宣称 20K 通过。
+## 2026-11-26 HLS segment 零拷贝
+
+`Segment.data` 从 `Vec<u8>` 改为 `Arc<Vec<u8>>`，`HlsStream::segment(seq)` 返回 `Arc`，HTTP 直接 `write_all(data.as_slice())`。
+
+优化点：
+
+- 每个 HLS segment 请求不再复制整个 TS；
+- 多个播放器请求同一 segment 共享同一份内存；
+- 加密仍只在 segment 生成时执行一次。
+
+测试：`tests/hls_http.rs` 3 项通过。

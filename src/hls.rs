@@ -12,7 +12,7 @@ use m7s_sdk::TagStream;
 pub struct Segment {
     pub seq: u64,
     pub duration: f64,
-    pub data: Vec<u8>,
+    pub data: std::sync::Arc<Vec<u8>>,
 }
 
 pub struct HlsStream {
@@ -42,7 +42,7 @@ impl HlsStream {
 
     fn push(&self, mut segment: Segment) {
         if self.encrypt {
-            segment.data = encrypt_segment(&segment.data, &self.key, segment.seq);
+            segment.data = std::sync::Arc::new(encrypt_segment(&segment.data, &self.key, segment.seq));
         }
         let mut segments = self.segments.write().unwrap_or_else(|e| e.into_inner());
         segments.push_back(segment);
@@ -72,7 +72,7 @@ impl HlsStream {
         self.key
     }
 
-    pub fn segment(&self, seq: u64) -> Option<Vec<u8>> {
+    pub fn segment(&self, seq: u64) -> Option<std::sync::Arc<Vec<u8>>> {
         self.segments
             .read()
             .unwrap_or_else(|e| e.into_inner())
@@ -166,7 +166,7 @@ async fn segment_loop(stream: Arc<crate::stream::Stream>, hls: Arc<HlsStream>, t
                 hls.push(Segment {
                     seq: output.seq,
                     duration: output.duration,
-                    data: output.data,
+                    data: std::sync::Arc::new(output.data),
                 });
             }
         }
