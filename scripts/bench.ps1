@@ -2,7 +2,8 @@ param(
     [int]$Viewers = 1000,
     [int]$Seconds = 3,
     [int]$Duration = 60,
-    [int]$SettleSecs = 3
+    [int]$SettleSecs = 3,
+    [int]$SourceIps = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +24,7 @@ try {
     $cpuBefore = $before.CPU
     $start = Get-Date
 
+    $env:LOAD_SOURCE_IPS = "$SourceIps"
     $loadOutput = node scripts\load_test.cjs $Viewers $Seconds | Out-String
     Write-Host $loadOutput.Trim()
     Start-Sleep -Seconds $SettleSecs

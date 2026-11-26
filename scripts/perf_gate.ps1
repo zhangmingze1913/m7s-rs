@@ -4,7 +4,8 @@ param(
     [int]$Duration = 90,
     [double]$MaxCpuPct = 120,
     [double]$MaxP99Ms = 400,
-    [double]$MaxMemMb = 64
+    [double]$MaxMemMb = 64,
+    [int]$SourceIps = 1
 )
 
 $ErrorActionPreference = "Stop"
@@ -12,7 +13,7 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 Write-Host "perf gate: viewers=$Viewers seconds=$Seconds"
-$raw = & "$PSScriptRoot\bench.ps1" -Viewers $Viewers -Seconds $Seconds -Duration $Duration -SettleSecs 3 | Out-String
+$raw = & "$PSScriptRoot\bench.ps1" -Viewers $Viewers -Seconds $Seconds -Duration $Duration -SettleSecs 3 -SourceIps $SourceIps | Out-String
 # bench.ps1 prints one JSON object at the end; keep from the first standalone brace.
 $start = $raw.IndexOf("{")
 if ($start -lt 0) {
