@@ -224,3 +224,6 @@ git push -u origin main
 - CI 使用 `.github/workflows/ci.yml`（Windows + clippy/test/release/Node smoke）；
 - 版本号、CHANGELOG、README 状态、DELIVERY 基线一致；
 - 打 tag 前运行 `scripts/perf_gate.ps1 -Viewers 5000`，并将 `bench-last.json` 作为构建产物保存而非提交。
+## 13. 配置热更新
+
+`GET /api/config/reload`（admin）重新读取启动时的 config 路径，并应用 HLS 配置（enabled/segment_secs/max_segments/encrypt）。监听地址、TLS 证书、RTMP/RTSP 端口仍需重启。测试：`tests/config_reload.rs`。

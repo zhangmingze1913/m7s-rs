@@ -76,6 +76,7 @@ fn main() -> ExitCode {
 
 async fn run(path: PathBuf, duration: Option<u64>, demo: bool) -> Result<()> {
     let cfg = Config::load(&path)?;
+    m7s_rs::config::set_reload_path(path.clone());
     env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("info"))
         .format_timestamp_millis()
         .try_init()

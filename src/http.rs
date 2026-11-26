@@ -148,7 +148,8 @@ where
         || path.starts_with("/api/audit")
         || path.starts_with("/api/license/activate")
         || path.starts_with("/api/license/revoke")
-        || path.starts_with("/api/admin");
+        || path.starts_with("/api/admin")
+        || path == "/api/config/reload";
     if admin_only && role != "admin" {
         return respond_json(
             &mut socket,
@@ -550,6 +551,16 @@ where
                 let _ = db.upsert_room(&r.name, &r.title, r.created, r.closed);
             }
             json!({"code":0,"enabled":true,"rooms":db.list_rooms().unwrap_or_default()})
+        }
+        "/api/config/reload" => {
+            match crate::config::reload() {
+                Ok(cfg) => {
+                    state.hls.reload(cfg.hls.clone());
+                    crate::audit::log(&caller, &role, "config.reload", "hls", true);
+                    json!({"code":0,"reloaded":true,"hls":{"enabled":cfg.hls.enabled,"segment_secs":cfg.hls.segment_secs,"max_segments":cfg.hls.max_segments,"encrypt":cfg.hls.encrypt}})
+                }
+                Err(e) => json!({"code":400,"reloaded":false,"error":e.to_string()}),
+            }
         }
         "/api/stream/delete" => {
             let stream = target

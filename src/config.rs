@@ -224,6 +224,20 @@ impl Config {
     }
 }
 
+static RELOAD_PATH: std::sync::OnceLock<std::path::PathBuf> = std::sync::OnceLock::new();
+
+/// Remember the loaded config path so the admin API can hot-reload it.
+pub fn set_reload_path(path: impl Into<std::path::PathBuf>) {
+    let _ = RELOAD_PATH.set(path.into());
+}
+
+/// Re-read and validate the startup config file.
+pub fn reload() -> Result<Config> {
+    let path = RELOAD_PATH
+        .get()
+        .ok_or_else(|| anyhow::anyhow!("config path not registered"))?;
+    Config::load(path)
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -245,3 +259,4 @@ mod tests {
         assert!(cfg.validate().is_err());
     }
 }
+

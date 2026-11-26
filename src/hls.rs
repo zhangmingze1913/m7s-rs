@@ -91,7 +91,7 @@ impl HlsStream {
 
 pub struct HlsManager {
     streams: Arc<StreamManager>,
-    cfg: HlsConfig,
+    cfg: std::sync::RwLock<HlsConfig>,
     playlists: RwLock<HashMap<String, Arc<HlsStream>>>,
 }
 
@@ -99,28 +99,38 @@ impl HlsManager {
     pub fn new(streams: Arc<StreamManager>, cfg: HlsConfig) -> Arc<Self> {
         Arc::new(Self {
             streams,
-            cfg,
+            cfg: std::sync::RwLock::new(cfg),
             playlists: RwLock::new(HashMap::new()),
         })
     }
 
+    /// Apply a new HLS config at runtime. Existing playlists keep running;
+    /// new/restarted playlists use the new segment/encryption settings.
+    pub fn reload(&self, cfg: HlsConfig) {
+        *self.cfg.write().unwrap_or_else(|e| e.into_inner()) = cfg;
+        self.playlists.write().unwrap_or_else(|e| e.into_inner()).clear();
+    }
+
     pub fn encrypt(&self) -> bool {
-        self.cfg.encrypt
+        self.cfg.read().unwrap_or_else(|e| e.into_inner()).encrypt
     }
 
     pub fn key_bytes(&self) -> [u8; 16] {
-        parse_key(&self.cfg.key)
+        parse_key(&self.cfg.read().unwrap_or_else(|e| e.into_inner()).key)
     }
 
     pub fn ensure(&self, app: &str, name: &str) -> Option<Arc<HlsStream>> {
-        if !self.cfg.enabled {
+        if !self.cfg.read().unwrap_or_else(|e| e.into_inner()).enabled {
             return None;
         }
         let key = format!("{app}/{name}");
         let hls = {
             let mut map = self.playlists.write().unwrap_or_else(|e| e.into_inner());
             map.entry(key.clone())
-                .or_insert_with(|| Arc::new(HlsStream::new(self.cfg.max_segments, self.cfg.encrypt, &self.cfg.key)))
+                .or_insert_with(|| {
+                let cfg = self.cfg.read().unwrap_or_else(|e| e.into_inner());
+                Arc::new(HlsStream::new(cfg.max_segments, cfg.encrypt, &cfg.key))
+            })
                 .clone()
         };
         if hls
@@ -132,7 +142,7 @@ impl HlsManager {
                 hls.running.store(false, Ordering::Release);
                 return Some(hls);
             };
-            let target = self.cfg.segment_secs;
+            let target = self.cfg.read().unwrap_or_else(|e| e.into_inner()).segment_secs;
             let hls_task = hls.clone();
             tokio::spawn(async move {
                 segment_loop(stream, hls_task.clone(), target).await;
