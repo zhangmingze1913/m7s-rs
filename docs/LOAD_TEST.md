@@ -199,3 +199,28 @@ run2: ok=4967/5000  cpu=43.48%  p99=196.8ms  mem=106.3MB
 - 加密仍只在 segment 生成时执行一次。
 
 测试：`tests/hls_http.rs` 3 项通过。
+## 2026-11-26 RTMP ingest 独立基准
+
+新增 `scripts/rtmp_bench.ps1`：生成测试 FLV，启动 release server，通过 `multi_push.cjs` 用 FFmpeg tee 发布 N 路 RTMP。
+
+20 路、5s、2 worker：
+
+```text
+published=20/20
+active=20
+cpu=2.87%
+mem=41.93MB
+```
+
+## 2026-11-26 帧级批量 A/B
+
+新增 `M7S_FLV_BATCH_MS`（默认 0）：每个 viewer 收到首 tag 后等待 N ms 再 drain，用于合并 A/V tag。
+
+5K、4 源 IP：
+
+| 配置 | CPU | p99 | 内存 |
+|---|---:|---:|---:|
+| 0ms | 52.68% | 108.6ms | 137.7MB |
+| 2ms | 46.52% | 136.0ms | 10.4MB |
+
+结论：2ms 批量未降低 p99（增加约 27ms），CPU/内存差异受运行波动影响。**默认保持 0ms**，该参数仅用于后续 A/B，不启用。

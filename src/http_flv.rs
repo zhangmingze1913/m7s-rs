@@ -5,6 +5,8 @@
 //! and per-connection polling. Comments below explain each performance-
 //! sensitive step instead of restating Rust syntax.
 
+
+
 use std::time::Duration;
 
 use anyhow::Result;
@@ -67,6 +69,7 @@ where
     // global per stream and lock-protected, so sampling prevents 10K viewers
     // from serializing on it while retaining thousands of p99 samples.
     let mut seen: u64 = 0;
+    let batch_ms = std::env::var("M7S_FLV_BATCH_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0).min(50);
 
     loop {
         // Block until the next tag arrives. This replaces the old 20ms poll:
@@ -75,6 +78,9 @@ where
             break;
         };
 
+        if batch_ms > 0 {
+            tokio::time::sleep(Duration::from_millis(batch_ms)).await;
+        }
         if seen >= 16 && seen & 63 == 0 {
             stream.record_latency(tag.created.elapsed().as_micros().min(u32::MAX as u128) as u32);
         }
@@ -88,7 +94,7 @@ where
         // audio for the same frame usually arrive together, so this halves the
         // number of syscalls without adding a batching delay.
         while let Some(tag) = reader.try_next() {
-            if seen >= 16 && seen & 63 == 0 {
+        if seen >= 16 && seen & 63 == 0 {
                 stream.record_latency(
                     tag.created.elapsed().as_micros().min(u32::MAX as u128) as u32,
                 );
