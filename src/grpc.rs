@@ -230,6 +230,59 @@ async fn handle(
             prost::Message::encode(&list, &mut body)?;
             frame(&body)
         }
+        "/m7s.RoomService/GetRoom" => {
+            let req: RoomRequest = prost::Message::decode(payload)
+                .unwrap_or(RoomRequest { room: String::new(), user: String::new() });
+            let status = RoomStatus {
+                room: req.room.clone(),
+                members: m7s_plugin_live::members(&req.room) as u64,
+                robots: m7s_plugin_live::robots(&req.room) as u64,
+                gifts: m7s_plugin_live::gift_total(&req.room),
+                seats: m7s_plugin_live::seats(&req.room).into_iter().flatten().collect(),
+            };
+            let mut body = Vec::new();
+            prost::Message::encode(&status, &mut body)?;
+            frame(&body)
+        }
+        "/m7s.RoomService/SendChat" => {
+            let req: ChatRequest = prost::Message::decode(payload).unwrap_or(ChatRequest {
+                room: String::new(),
+                user: String::new(),
+                text: String::new(),
+            });
+            let reply = match m7s_plugin_live::send_chat(&req.room, &req.user, &req.text) {
+                Ok(msg) => ChatReply {
+                    ok: true,
+                    error: String::new(),
+                    user: msg.user,
+                    text: msg.text,
+                    ts: msg.ts,
+                },
+                Err(error) => ChatReply {
+                    ok: false,
+                    error,
+                    user: req.user,
+                    text: req.text,
+                    ts: 0,
+                },
+            };
+            let mut body = Vec::new();
+            prost::Message::encode(&reply, &mut body)?;
+            frame(&body)
+        }
+        "/m7s.RoomService/SendGift" => {
+            let req: GiftRequest = prost::Message::decode(payload).unwrap_or(GiftRequest {
+                room: String::new(),
+                user: String::new(),
+                gift: 0,
+                count: 0,
+            });
+            let total = m7s_plugin_live::send_gift(&req.room, &req.user, req.gift, req.count);
+            let reply = GiftReply { ok: true, total };
+            let mut body = Vec::new();
+            prost::Message::encode(&reply, &mut body)?;
+            frame(&body)
+        }
         "/m7s.RoomService/CreateRoom" => {
             let req: RoomRequest = prost::Message::decode(payload).unwrap_or(RoomRequest { room: String::new(), user: String::new() });
             let ok = m7s_plugin_live::create_room(&req.room, &req.user);
@@ -339,6 +392,64 @@ fn frame(payload: &[u8]) -> Bytes {
     out.extend_from_slice(&(payload.len() as u32).to_be_bytes());
     out.extend_from_slice(payload);
     Bytes::from(out)
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct RoomStatus {
+    #[prost(string, tag = "1")]
+    pub room: String,
+    #[prost(uint64, tag = "2")]
+    pub members: u64,
+    #[prost(uint64, tag = "3")]
+    pub robots: u64,
+    #[prost(uint64, tag = "4")]
+    pub gifts: u64,
+    #[prost(string, repeated, tag = "5")]
+    pub seats: Vec<String>,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct ChatRequest {
+    #[prost(string, tag = "1")]
+    pub room: String,
+    #[prost(string, tag = "2")]
+    pub user: String,
+    #[prost(string, tag = "3")]
+    pub text: String,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct ChatReply {
+    #[prost(bool, tag = "1")]
+    pub ok: bool,
+    #[prost(string, tag = "2")]
+    pub error: String,
+    #[prost(string, tag = "3")]
+    pub user: String,
+    #[prost(string, tag = "4")]
+    pub text: String,
+    #[prost(uint64, tag = "5")]
+    pub ts: u64,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct GiftRequest {
+    #[prost(string, tag = "1")]
+    pub room: String,
+    #[prost(string, tag = "2")]
+    pub user: String,
+    #[prost(uint32, tag = "3")]
+    pub gift: u32,
+    #[prost(uint32, tag = "4")]
+    pub count: u32,
+}
+
+#[derive(Clone, PartialEq, prost::Message)]
+pub struct GiftReply {
+    #[prost(bool, tag = "1")]
+    pub ok: bool,
+    #[prost(uint64, tag = "2")]
+    pub total: u64,
 }
 
 #[derive(Clone, PartialEq, prost::Message)]

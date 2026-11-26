@@ -84,3 +84,20 @@ WatchStreams 每 50ms 推送一个 StreamList frame，共 3 次，然后 grpc-st
 
 	ests/api_parity.rs 验证 List/Create/Delete 在 gRPC 与 HTTP 间一致；
 Room/Plugin/Status 全量对照仍未覆盖。
+
+## 2026-11-26 Room 字段级补充
+
+新增：
+
+```text
+:m7s.RoomService/GetRoom
+:m7s.RoomService/SendChat
+:m7s.RoomService/SendGift
+```
+
+- `GetRoom` 返回 `room/members/robots/gifts/seats`；
+- `SendChat` 返回 `ok/error/user/text/ts`；
+- `SendGift` 返回 `ok/total`；
+- 与 HTTP `/api/live/status`、`/api/live/chat/send`、`/api/live/gift` 对应。
+
+测试：`tests/grpc_room.rs::grpc_room_matches_http_surface`。
