@@ -1,7 +1,7 @@
 //! Stream registry with a GOP cache and broadcast fan-out.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, RwLock};
 
 use serde_json::{Value, json};
@@ -25,7 +25,8 @@ pub struct Stream {
     latencies: Mutex<VecDeque<u32>>,
     started_ms: i64,
     gop_cache: usize,
-    last_ts: Mutex<u32>,
+    /// Monotonic last timestamp; atomic avoids a mutex on every tag.
+    last_ts: AtomicU32,
     ring: Arc<crate::ring::RingBuffer<FlvTag>>,
     tap_tx: broadcast::Sender<m7s_sdk::SharedTag>,
     dispatcher: Arc<crate::dispatcher::Dispatcher>,
@@ -49,7 +50,7 @@ impl Stream {
             latencies: Mutex::new(VecDeque::new()),
             started_ms: now_ms(),
             gop_cache: gop_cache.max(1),
-            last_ts: Mutex::new(0),
+            last_ts: AtomicU32::new(0),
             ring: crate::ring::RingBuffer::new(gop_cache.saturating_mul(2).max(64)),
             tap_tx: broadcast::channel(1024).0,
             dispatcher: crate::dispatcher::Dispatcher::new(150),
@@ -67,16 +68,14 @@ impl Stream {
     /// that subscribes concurrently can still obtain codec config from backlog.
     pub fn push(&self, tag: SharedTag) {
         let mut tag = tag;
-        {
-            let mut last = self.last_ts.lock().unwrap_or_else(|e| e.into_inner());
-            if tag.timestamp.saturating_add(1000) < *last {
-                let mut fixed = (*tag).clone();
-                fixed.timestamp = last.saturating_add(40);
-                tag = Arc::new(fixed);
-            }
-            if tag.timestamp > *last {
-                *last = tag.timestamp;
-            }
+        // Monotonic timestamp guard: `fetch_max` is lock-free and returns the
+        // previous maximum, so the common increasing case costs one atomic.
+        let previous = self.last_ts.fetch_max(tag.timestamp, Ordering::AcqRel);
+        if tag.timestamp.saturating_add(1000) < previous {
+            let mut fixed = (*tag).clone();
+            fixed.timestamp = previous.saturating_add(40);
+            self.last_ts.fetch_max(fixed.timestamp, Ordering::AcqRel);
+            tag = Arc::new(fixed);
         }
         // Append to the per-stream history ring used by debug/backlog paths.
         self.ring.push(tag.clone());
