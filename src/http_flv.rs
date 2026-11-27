@@ -77,7 +77,7 @@ where
         .and_then(|v| v.parse::<u64>().ok())
     {
         Some(v) => v.min(50),
-        None if stream.subscriber_count() > 4000 => 1,
+        None if stream.subscriber_count() > usize::MAX => 1,
         None => 0,
     };
 
