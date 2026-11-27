@@ -69,18 +69,13 @@ where
     // global per stream and lock-protected, so sampling prevents 10K viewers
     // from serializing on it while retaining thousands of p99 samples.
     let mut seen: u64 = 0;
-    // Explicit env wins. Otherwise only very large fan-out is batched: at that
-    // point the syscall/wakeup reduction outweighs the added sub-millisecond
-    // delay, and small streams keep the lowest possible latency.
-    let batch_ms = match std::env::var("M7S_FLV_BATCH_MS")
+    // Fixed-window batching is opt-in: A/B showed it increases p99 for normal
+    // streams. Real frame-boundary batching needs Dispatcher batch semantics.
+    let batch_ms = std::env::var("M7S_FLV_BATCH_MS")
         .ok()
         .and_then(|v| v.parse::<u64>().ok())
-    {
-        Some(v) => v.min(50),
-        None if stream.subscriber_count() > usize::MAX => 1,
-        None => 0,
-    };
-
+        .unwrap_or(0)
+        .min(50);
     loop {
         // Block until the next tag arrives. This replaces the old 20ms poll:
         // no timer wakeups while a stream is idle, and lower delivery latency.
