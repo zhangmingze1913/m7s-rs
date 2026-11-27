@@ -82,7 +82,9 @@ pub struct Stream {
 
 impl Stream {
     pub fn new(app: &str, name: &str, gop_cache: usize) -> Self {
-        let (tx, _) = broadcast::channel(1024);
+        // Legacy recorder/tap queues are intentionally small: a 1024-slot ring
+        // per stream costs ~8KB and multiplies by 10K streams.
+        let (tx, _) = broadcast::channel(64);
         Self {
             app: app.to_string(),
             name: name.to_string(),
@@ -97,7 +99,7 @@ impl Stream {
             gop_cache: gop_cache.max(1),
             last_ts: AtomicU32::new(0),
             ring: crate::ring::RingBuffer::new(gop_cache.saturating_mul(2).max(64)),
-            tap_tx: broadcast::channel(1024).0,
+            tap_tx: broadcast::channel(64).0,
             dispatcher: crate::dispatcher::Dispatcher::new(150),
             worker_idx: std::sync::OnceLock::new(),
         }
