@@ -65,7 +65,7 @@ impl<T: Send + Sync + 'static> RingBuffer<T> {
             .min(self.capacity() as u64) as usize
     }
 
-    /// Copy the most recent `limit` frames (oldest first) without consuming a
+    pub fn is_empty(&self) -> bool {`r`n        self.len() == 0`r`n    }`r`n`r`n    /// Copy the most recent `limit` frames (oldest first) without consuming a
     /// reader. Slots that are overwritten concurrently are skipped, so the
     /// result may be slightly shorter than `limit` while the writer is active.
     pub fn snapshot(&self, limit: usize) -> Vec<Arc<T>> {
