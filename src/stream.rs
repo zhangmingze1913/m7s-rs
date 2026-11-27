@@ -156,7 +156,12 @@ impl Stream {
         } else {
             self.dispatcher.push(tag.clone());
         }
-        let _ = self.tx.send(tag);
+        // Legacy broadcaster: only recorders / `subscribe()` consumers use it.
+        // Skip the send entirely when nobody is listening so the common
+        // live-streaming case does not pay for a second fan-out structure.
+        if self.tx.receiver_count() > 0 {
+            let _ = self.tx.send(tag);
+        }
     }
 
     /// Recent GOP snapshot for SDP/config probing without registering a subscriber.
