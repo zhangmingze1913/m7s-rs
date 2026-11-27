@@ -58,6 +58,41 @@ impl<T: Send + Sync + 'static> RingBuffer<T> {
         self.dropped.load(Ordering::Relaxed)
     }
 
+    /// Number of frames currently retained (bounded by capacity).
+    pub fn len(&self) -> usize {
+        self.write
+            .load(Ordering::Acquire)
+            .min(self.capacity() as u64) as usize
+    }
+
+    /// Copy the most recent `limit` frames (oldest first) without consuming a
+    /// reader. Slots that are overwritten concurrently are skipped, so the
+    /// result may be slightly shorter than `limit` while the writer is active.
+    pub fn snapshot(&self, limit: usize) -> Vec<Arc<T>> {
+        let write = self.write.load(Ordering::Acquire);
+        let cap = self.capacity() as u64;
+        let want = (limit as u64).min(cap);
+        if want == 0 || write == 0 {
+            return Vec::new();
+        }
+        let mut out = Vec::with_capacity(want as usize);
+        let first = write.saturating_sub(want) + 1;
+        let oldest = write.saturating_sub(cap);
+        for pos in first..=write {
+            if pos <= oldest {
+                continue;
+            }
+            let slot = &self.slots[(pos as usize) & self.mask];
+            if slot.seq.load(Ordering::Acquire) != pos {
+                continue;
+            }
+            if let Some(data) = slot.data.load_full() {
+                out.push(data);
+            }
+        }
+        out
+    }
+
     /// Append one frame. Never blocks readers; overwrites the oldest slot.
     pub fn push(&self, frame: Arc<T>) {
         let pos = self.write.fetch_add(1, Ordering::AcqRel) + 1;

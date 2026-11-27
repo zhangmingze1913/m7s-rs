@@ -1,6 +1,6 @@
 //! Stream registry with a GOP cache and broadcast fan-out.
 
-use std::collections::{HashMap, VecDeque};
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
 use std::sync::{Arc, RwLock};
 
@@ -63,7 +63,6 @@ pub struct Stream {
     pub app: String,
     pub name: String,
     key: String,
-    cache: RwLock<VecDeque<SharedTag>>,
     metadata: RwLock<Option<SharedTag>>,
     configs: RwLock<Vec<SharedTag>>,
     tx: broadcast::Sender<SharedTag>,
@@ -88,7 +87,6 @@ impl Stream {
             app: app.to_string(),
             name: name.to_string(),
             key: format!("{app}/{name}"),
-            cache: RwLock::new(VecDeque::with_capacity(gop_cache)),
             metadata: RwLock::new(None),
             configs: RwLock::new(Vec::new()),
             tx,
@@ -140,14 +138,7 @@ impl Stream {
         if tag.tag_type == 18 {
             *self.metadata.write().unwrap_or_else(|e| e.into_inner()) = Some(tag.clone());
         }
-        {
-            let mut cache = self.cache.write().unwrap_or_else(|e| e.into_inner());
-            cache.push_back(tag.clone());
-            while cache.len() > self.gop_cache {
-                cache.pop_front();
-            }
-        }
-        // Fan-out is last: readers must be able to see the cache/config above.
+        // Fan-out is last: readers must be able to see the ring/config above.
         if let Some(pool) = crate::dispatcher::pool() {
             let idx = *self
                 .worker_idx
@@ -173,13 +164,7 @@ impl Stream {
             .iter()
             .cloned()
             .collect();
-        out.extend(
-            self.cache
-                .read()
-                .unwrap_or_else(|e| e.into_inner())
-                .iter()
-                .cloned(),
-        );
+        out.extend(self.ring.snapshot(self.gop_cache));
         out
     }
 
@@ -200,13 +185,7 @@ impl Stream {
 
     pub fn subscribe(&self) -> (Vec<SharedTag>, broadcast::Receiver<SharedTag>) {
         self.subscribers.fetch_add(1, Ordering::Relaxed);
-        let mut cache: Vec<SharedTag> = self
-            .cache
-            .read()
-            .unwrap_or_else(|e| e.into_inner())
-            .iter()
-            .cloned()
-            .collect();
+        let mut cache: Vec<SharedTag> = self.ring.snapshot(self.gop_cache);
         for config in self
             .configs
             .read()
@@ -254,7 +233,7 @@ impl Stream {
             "subscribers": self.subscribers.load(Ordering::Relaxed),
             "bytes": self.bytes.load(Ordering::Relaxed),
             "started": rfc3339(self.started_ms),
-            "cached_tags": self.cache.read().unwrap_or_else(|e| e.into_inner()).len(),
+            "cached_tags": self.ring.len().min(self.gop_cache),
             "latency_p99_us": self.latency_p99(),
             "latency_samples": self.latencies.len(),
         })
