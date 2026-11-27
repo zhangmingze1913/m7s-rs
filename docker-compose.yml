@@ -1,0 +1,30 @@
+services:
+  m7s:
+    build: .
+    image: m7s-rs:local
+    container_name: m7s-rs
+    restart: unless-stopped
+    ports:
+      - "8180:8180"
+      - "1935:1935"
+      - "8554:8554"
+      - "8081:8081"
+      - "8082:8082"
+      - "8083:8083"
+      - "9000:9000/udp"
+      - "4443:4443/udp"
+      - "50051:50051"
+      - "9443:9443/udp"
+    volumes:
+      - ./config:/app/config:ro
+      - ./data:/data
+    environment:
+      M7S_META_DB: /data/meta.db
+      M7S_AUDIT_LOG: /data/audit.log
+      M7S_GIFT_FILE: /data/gifts.json
+      M7S_GIFT_EVENT_LOG: /data/gift-events.jsonl
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8180/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 6

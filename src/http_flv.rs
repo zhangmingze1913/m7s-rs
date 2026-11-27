@@ -69,7 +69,17 @@ where
     // global per stream and lock-protected, so sampling prevents 10K viewers
     // from serializing on it while retaining thousands of p99 samples.
     let mut seen: u64 = 0;
-    let batch_ms = std::env::var("M7S_FLV_BATCH_MS").ok().and_then(|v| v.parse::<u64>().ok()).unwrap_or(0).min(50);
+    // Explicit env wins. Otherwise only very large fan-out is batched: at that
+    // point the syscall/wakeup reduction outweighs the added sub-millisecond
+    // delay, and small streams keep the lowest possible latency.
+    let batch_ms = match std::env::var("M7S_FLV_BATCH_MS")
+        .ok()
+        .and_then(|v| v.parse::<u64>().ok())
+    {
+        Some(v) => v.min(50),
+        None if stream.subscriber_count() > 4000 => 1,
+        None => 0,
+    };
 
     loop {
         // Block until the next tag arrives. This replaces the old 20ms poll:

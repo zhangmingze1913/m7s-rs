@@ -46,3 +46,5 @@ config/*.pfx
 /rtmp-bench.*
 
 /hls-bench.*
+
+*.etl

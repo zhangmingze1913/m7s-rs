@@ -2,7 +2,7 @@
 
 use std::collections::{HashMap, VecDeque};
 use std::sync::atomic::{AtomicU32, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex, RwLock};
+use std::sync::{Arc, RwLock};
 
 use serde_json::{Value, json};
 use tokio::sync::broadcast;
@@ -11,6 +11,53 @@ use crate::flv::FlvTag;
 use crate::time::{now_ms, rfc3339};
 
 pub type SharedTag = Arc<FlvTag>;
+
+/// Fixed-capacity, lock-free latency sampler.
+///
+/// Viewers record one sample every 64 tags, so with thousands of viewers a
+/// `Mutex<VecDeque<u32>>` becomes a global contention point. A ring of atomics
+/// keeps recording O(1) with no lock; percentiles are computed on read.
+const LATENCY_CAPACITY: usize = 4096;
+
+struct LatencySamples {
+    slots: Vec<AtomicU32>,
+    written: AtomicU64,
+}
+
+impl LatencySamples {
+    fn new() -> Self {
+        Self {
+            slots: (0..LATENCY_CAPACITY).map(|_| AtomicU32::new(0)).collect(),
+            written: AtomicU64::new(0),
+        }
+    }
+
+    #[inline]
+    fn record(&self, micros: u32) {
+        let n = self.written.fetch_add(1, Ordering::Relaxed);
+        let idx = (n as usize) % LATENCY_CAPACITY;
+        self.slots[idx].store(micros, Ordering::Relaxed);
+    }
+
+    fn len(&self) -> usize {
+        self.written
+            .load(Ordering::Relaxed)
+            .min(LATENCY_CAPACITY as u64) as usize
+    }
+
+    fn p99(&self) -> u64 {
+        let mut sorted: Vec<u32> = (0..self.len())
+            .map(|i| self.slots[i].load(Ordering::Relaxed))
+            .filter(|v| *v > 0)
+            .collect();
+        if sorted.is_empty() {
+            return 0;
+        }
+        sorted.sort_unstable();
+        let idx = (sorted.len() * 99 / 100).min(sorted.len() - 1);
+        sorted[idx] as u64
+    }
+}
 
 pub struct Stream {
     pub app: String,
@@ -22,7 +69,7 @@ pub struct Stream {
     tx: broadcast::Sender<SharedTag>,
     subscribers: AtomicUsize,
     bytes: AtomicU64,
-    latencies: Mutex<VecDeque<u32>>,
+    latencies: LatencySamples,
     started_ms: i64,
     gop_cache: usize,
     /// Monotonic last timestamp; atomic avoids a mutex on every tag.
@@ -47,7 +94,7 @@ impl Stream {
             tx,
             subscribers: AtomicUsize::new(0),
             bytes: AtomicU64::new(0),
-            latencies: Mutex::new(VecDeque::new()),
+            latencies: LatencySamples::new(),
             started_ms: now_ms(),
             gop_cache: gop_cache.max(1),
             last_ts: AtomicU32::new(0),
@@ -173,23 +220,18 @@ impl Stream {
         self.subscribers.fetch_sub(1, Ordering::Relaxed);
     }
 
+    /// Current viewer count. Used by the HTTP-FLV path to pick a batching
+    /// strategy without touching the subscriber atomic directly.
+    pub fn subscriber_count(&self) -> usize {
+        self.subscribers.load(Ordering::Relaxed)
+    }
+
     pub fn record_latency(&self, micros: u32) {
-        let mut values = self.latencies.lock().unwrap_or_else(|e| e.into_inner());
-        values.push_back(micros);
-        while values.len() > 4096 {
-            values.pop_front();
-        }
+        self.latencies.record(micros);
     }
 
     fn latency_p99(&self) -> u64 {
-        let values = self.latencies.lock().unwrap_or_else(|e| e.into_inner());
-        if values.is_empty() {
-            return 0;
-        }
-        let mut sorted: Vec<u32> = values.iter().copied().collect();
-        sorted.sort_unstable();
-        let idx = (sorted.len() * 99 / 100).min(sorted.len() - 1);
-        sorted[idx] as u64
+        self.latencies.p99()
     }
 
     pub fn metadata(&self) -> Option<SharedTag> {
@@ -209,7 +251,7 @@ impl Stream {
             "started": rfc3339(self.started_ms),
             "cached_tags": self.cache.read().unwrap_or_else(|e| e.into_inner()).len(),
             "latency_p99_us": self.latency_p99(),
-            "latency_samples": self.latencies.lock().unwrap_or_else(|e| e.into_inner()).len(),
+            "latency_samples": self.latencies.len(),
         })
     }
 }
