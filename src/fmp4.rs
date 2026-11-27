@@ -36,23 +36,30 @@ fn build_segment(seq: u32, base: u64, samples: &[Sample]) -> Segment {
     let data = media_segment(seq, base, samples, 90_000);
     let total: u32 = samples.iter().map(|s| s.duration).sum();
     let mut parts = Vec::new();
-    let mut cur: Vec<Sample> = Vec::new();
-    let mut dur = 0u32;
     let mut start = base;
-    for s in samples {
-        cur.push(Sample { data: s.data.clone(), duration: s.duration, key: s.key });
+    let mut first = 0usize;
+    let mut dur = 0u32;
+    // Slice the sample array instead of cloning every sample into a scratch
+    // Vec: `media_segment` only reads, so a sub-slice is enough.
+    for (i, s) in samples.iter().enumerate() {
         dur += s.duration;
         if dur >= 45_000 {
             let d = dur as f64 / 90_000.0;
-            parts.push(Part { data: media_segment(seq, start, &cur, 90_000), duration: d });
+            parts.push(Part {
+                data: media_segment(seq, start, &samples[first..=i], 90_000),
+                duration: d,
+            });
             start += dur as u64;
             dur = 0;
-            cur.clear();
+            first = i + 1;
         }
     }
-    if !cur.is_empty() {
+    if first < samples.len() {
         let d = dur as f64 / 90_000.0;
-        parts.push(Part { data: media_segment(seq, start, &cur, 90_000), duration: d });
+        parts.push(Part {
+            data: media_segment(seq, start, &samples[first..], 90_000),
+            duration: d,
+        });
     }
     Segment { data, duration: total as f64 / 90_000.0, parts }
 }
