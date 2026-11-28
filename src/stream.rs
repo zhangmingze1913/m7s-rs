@@ -166,7 +166,18 @@ impl Stream {
             .iter()
             .cloned()
             .collect();
-        out.extend(self.ring.snapshot(self.gop_cache));
+        // Replay at most the latest keyframe GOP. Sending all 500 tags to
+        // every new 10K viewer made join bursts write megabytes per client.
+        let mut recent = self.ring.snapshot(self.gop_cache);
+        if let Some(pos) = recent.iter().rposition(|t| {
+            t.tag_type == 9 && t.data.first().is_some_and(|b| b >> 4 == 1)
+        }) {
+            recent.drain(..pos);
+        } else if recent.len() > 100 {
+            let cut = recent.len() - 100;
+            recent.drain(..cut);
+        }
+        out.extend(recent);
         out
     }
 
