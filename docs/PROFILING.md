@@ -34,7 +34,7 @@ perf script | stackcollapse-perf.pl | flamegraph.pl > flame.svg
 |---|---|---|
 | DispatcherPool 每 tag SipHash | `Stream::push` 曾每 tag 调用 `worker_for(key)` | 已缓存 shard index 到 `Stream::worker_idx` |
 | broadcast 唤醒 10K task | 每 tag `tx.send` | 架构限制；帧边界 batch 尚未实现 |
-| `Stream::push` 多把锁 | last_ts 曾是 Mutex | 已改为 AtomicU32::fetch_max；cache/config 锁仍保留 |
+| `Stream::push` 多把锁 | last_ts 曾是 Mutex | 已改为 AtomicU32::fetch_max；cache/config 锁仍保留 |`r`n| 晚加入 viewer 回放 500 tag | `cache_snapshot` 发送整个 gop_cache | 已截断到最近 keyframe GOP，避免 10K join 写放大 |
 | HLS segment 复制 | 每次请求 clone TS | 已改 `Arc<Vec<u8>>` |
 | HTTP 每连接发送缓冲 | 10K 约 355MB RSS | 已加 `M7S_HTTP_SNDBUF=64KB` |
 
