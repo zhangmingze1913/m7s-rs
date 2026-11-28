@@ -7,6 +7,7 @@
 
 
 
+use std::sync::OnceLock;
 use std::time::Duration;
 
 use anyhow::Result;
@@ -71,11 +72,7 @@ where
     let mut seen: u64 = 0;
     // Fixed-window batching is opt-in: A/B showed it increases p99 for normal
     // streams. Real frame-boundary batching needs Dispatcher batch semantics.
-    let batch_ms = std::env::var("M7S_FLV_BATCH_MS")
-        .ok()
-        .and_then(|v| v.parse::<u64>().ok())
-        .unwrap_or(0)
-        .min(50);
+    let batch_ms = batch_ms();
     loop {
         // Block until the next tag arrives. This replaces the old 20ms poll:
         // no timer wakeups while a stream is idle, and lower delivery latency.
@@ -136,3 +133,14 @@ where
 /// used by older polling code and by callers that re-export it.
 #[allow(dead_code)]
 const LEGACY_POLL_INTERVAL: Duration = Duration::from_millis(20);
+
+fn batch_ms() -> u64 {
+    static BATCH: OnceLock<u64> = OnceLock::new();
+    *BATCH.get_or_init(|| {
+        std::env::var("M7S_FLV_BATCH_MS")
+            .ok()
+            .and_then(|v| v.parse::<u64>().ok())
+            .unwrap_or(0)
+            .min(50)
+    })
+}

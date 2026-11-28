@@ -8,7 +8,7 @@
 //!
 //! Per-frame work belongs in `http_flv`/`hls`, not here.
 
-use std::sync::Arc;
+use std::sync::{Arc, OnceLock};
 
 use anyhow::Result;
 use serde_json::{Value, json};
@@ -36,7 +36,8 @@ pub async fn run(listener: TcpListener, state: AppState) -> Result<()> {
     loop {
         let (socket, peer) = listener.accept().await?;
         let _ = socket.set_nodelay(true);
-        if let Ok(bytes) = std::env::var("M7S_HTTP_SNDBUF").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent)) {
+        let bytes = http_sndbuf();
+        {
             let _ = socket2::SockRef::from(&socket).set_send_buffer_size(bytes.max(4096));
         }
         let Some(guard) = m7s_sdk::connections::try_acquire() else {
@@ -58,7 +59,8 @@ pub async fn run_tls(listener: TcpListener, state: AppState, acceptor: TlsAccept
     loop {
         let (socket, peer) = listener.accept().await?;
         let _ = socket.set_nodelay(true);
-        if let Ok(bytes) = std::env::var("M7S_HTTP_SNDBUF").and_then(|v| v.parse::<usize>().map_err(|_| std::env::VarError::NotPresent)) {
+        let bytes = http_sndbuf();
+        {
             let _ = socket2::SockRef::from(&socket).set_send_buffer_size(bytes.max(4096));
         }
         let Some(guard) = m7s_sdk::connections::try_acquire() else {
@@ -1614,4 +1616,14 @@ fn fmp4_playlist_key(mut playlist: String) -> String {
         );
     }
     playlist
+}
+
+fn http_sndbuf() -> usize {
+    static SNDBUF: OnceLock<usize> = OnceLock::new();
+    *SNDBUF.get_or_init(|| {
+        std::env::var("M7S_HTTP_SNDBUF")
+            .ok()
+            .and_then(|v| v.parse::<usize>().ok())
+            .unwrap_or(64 * 1024)
+    })
 }
