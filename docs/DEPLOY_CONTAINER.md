@@ -60,3 +60,15 @@ powershell -File scripts/hls_bench.ps1 -Seconds 10 -Concurrency 20
 - Docker Desktop/WSL 不可用时无法本机验证容器；CI 的 `docker.yml` 会在 Linux runner 构建镜像。
 - K8s 清单用 `kubectl apply --dry-run=client` 校验，实际集群需镜像仓库。
 - 数据目录 `/data` 必须持久化；生产替换 `config/server.toml` 的密钥。
+
+## 2026-11-28 实测
+
+- `docker build`（legacy builder，rust:1.100）：成功生成 `m7s-rs:local`
+- `docker run` + `/health`：成功
+- Docker Desktop 端口映射下 1000 viewers：`ok=82/1000`
+- 5000 viewers：`ok=165/5000`
+- 容器 CPU 约 4.5%，内存约 9MB
+
+结论：容器本身启动正常；Docker Desktop Windows 端口代理是高并发瓶颈，不能作为 10K 服务端性能结论。需 Linux host network / 直接容器网络或 K8s pod-to-pod 压测。
+
+kind 集群 `mq-rust-k8s` 当前 control-plane/worker2 连接不稳定，`kind load` 报 worker2 容器未运行，未能完成 K8s 部署。

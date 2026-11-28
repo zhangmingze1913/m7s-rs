@@ -1,9 +1,10 @@
 # syntax=docker/dockerfile:1
-FROM rust:1.94-bookworm AS build
+FROM rust:1.100-bookworm AS build
 WORKDIR /src
 COPY Cargo.toml Cargo.lock ./
 COPY crates ./crates
 COPY src ./src
+COPY web ./web
 RUN cargo build --release --workspace --locked
 
 FROM debian:bookworm-slim
